@@ -20,7 +20,6 @@ add_library(vrf
     lib/rsa/params.cpp
 )
 
-
 target_compile_features(vrf PUBLIC cxx_std_20)
 target_include_directories(vrf PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 target_link_libraries(vrf PRIVATE spdlog::spdlog_header_only)

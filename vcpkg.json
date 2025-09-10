@@ -1,7 +1,7 @@
 {
-  "name": "vrfdemo",
+  "name": "libvrf",
   "version": "0.0.1",
-  "description": "Example VRF implementations for testing.",
+  "description": "VRF implementation library in C++",
   "license": "MIT",
   "dependencies": [
     "spdlog",
