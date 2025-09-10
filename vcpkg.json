@@ -1,0 +1,13 @@
+{
+  "name": "vrfdemo",
+  "version": "0.0.1",
+  "description": "Example VRF implementations for testing.",
+  "license": "MIT",
+  "dependencies": [
+    "spdlog",
+    "openssl",
+    "gtest",
+    "benchmark"
+  ],
+  "builtin-baseline": "f2e1c41da38c71be74ef48684666991929b45418"
+}

@@ -1,0 +1,8 @@
+.vscode
+.code-workspace
+.cache
+.git
+.nvim
+compile_commands.json
+build*
+
