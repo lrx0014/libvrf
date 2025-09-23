@@ -287,7 +287,12 @@ TEST_P(VRFTest, InvalidPublicKey)
 }
 
 INSTANTIATE_TEST_SUITE_P(RSAVRFTypes, VRFTest,
-                         testing::Values(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256,
-                                         vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256,
-                                         vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA512,
-                                         vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+                         testing::Values(
+                             vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256,
+                             vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256,
+                             vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384,
+                             vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512,
+                             vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256,
+                             vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256,
+                             vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384,
+                             vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
