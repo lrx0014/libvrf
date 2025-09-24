@@ -1,5 +1,5 @@
-#include "log.h"
 #include "vrf/vrf.h"
+#include "log.h"
 
 namespace vrf
 {
@@ -17,8 +17,7 @@ VRF &VRF::operator=(VRF &&rhs) noexcept
     return *this;
 }
 
-template<typename T>
-VRF VRF::make_vrf(Type type)
+template <typename T> VRF VRF::make_vrf(Type type)
 {
     VRF vrf{};
 
@@ -75,12 +74,12 @@ std::unique_ptr<SecretKey> VRF::get_secret_key() const
 
 bool VRF::is_initialized() const
 {
-    bool type_valid = (get_type() != Type::UNKNOWN_VRF_TYPE);
-    bool keys_set = (sk_ != nullptr && pk_ != nullptr);
-    bool type_matches = (sk_->get_type() == get_type()) && (pk_->get_type() == get_type());
-    bool keys_valid = sk_->is_initialized() && pk_->is_initialized();
+    bool type_valid = get_type() != Type::UNKNOWN_VRF_TYPE;
+    bool keys_set = type_valid && (sk_ != nullptr && pk_ != nullptr);
+    bool type_matches = keys_set && (sk_->get_type() == get_type() && pk_->get_type() == get_type());
+    bool keys_valid = type_matches && (sk_->is_initialized() && pk_->is_initialized());
 
-    return type_valid && keys_set && type_matches && keys_valid;
+    return keys_valid;
 }
 
 std::unique_ptr<Proof> VRF::proof_from_bytes(Type type, std::span<std::byte> data)

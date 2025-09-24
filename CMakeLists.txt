@@ -14,10 +14,12 @@ find_package(GTest REQUIRED)
 find_package(benchmark REQUIRED)
 
 add_library(vrf
+    lib/common.cpp
     lib/log.cpp
     lib/vrf.cpp
-    lib/rsa/rsavrf.cpp
+    lib/rsa/keys.cpp
     lib/rsa/params.cpp
+    lib/rsa/rsavrf.cpp
 )
 
 target_compile_features(vrf PUBLIC cxx_std_20)

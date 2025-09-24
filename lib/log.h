@@ -3,8 +3,6 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
-// NOT A PUBLIC HEADER
-
 namespace vrf
 {
 

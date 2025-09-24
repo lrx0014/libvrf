@@ -10,7 +10,7 @@ class LoggerManager
     LoggerManager()
     {
         logger_ = spdlog::stdout_color_mt("vrf");
-        auto formatter = std::make_unique<spdlog::pattern_formatter>("[%t] %Y-%m-%d %H:%M:%S.%e | %v");
+        auto formatter = std::make_unique<spdlog::pattern_formatter>("[%t] %Y-%m-%d %H:%M:%S.%e | %l: %v");
         logger_->set_formatter(std::move(formatter));
     }
 

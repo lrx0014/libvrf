@@ -14,14 +14,14 @@ static void BM_VRF_GenerateKeys(benchmark::State &state)
 
 BENCHMARK(BM_VRF_GenerateKeys)
     ->Unit(benchmark::kMillisecond)
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 static void BM_VRF_GenerateProof(benchmark::State &state)
 {
@@ -39,14 +39,14 @@ static void BM_VRF_GenerateProof(benchmark::State &state)
 
 BENCHMARK(BM_VRF_GenerateProof)
     ->Unit(benchmark::kMillisecond)
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 static void BM_VRF_VerifyProof(benchmark::State &state)
 {
@@ -67,14 +67,14 @@ static void BM_VRF_VerifyProof(benchmark::State &state)
 
 BENCHMARK(BM_VRF_VerifyProof)
     ->Unit(benchmark::kMicrosecond)
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 static void BM_VRF_ProofToBytes(benchmark::State &state)
 {
@@ -94,14 +94,14 @@ static void BM_VRF_ProofToBytes(benchmark::State &state)
 BENCHMARK(BM_VRF_ProofToBytes)
     ->Unit(benchmark::kNanosecond)
     ->Iterations(1000)
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 static void BM_VRF_ProofFromBytes(benchmark::State &state)
 {
@@ -122,14 +122,14 @@ static void BM_VRF_ProofFromBytes(benchmark::State &state)
 BENCHMARK(BM_VRF_ProofFromBytes)
     ->Unit(benchmark::kNanosecond)
     ->Iterations(1000)
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 static void BM_VRF_PublicKeyToBytes(benchmark::State &state)
 {
@@ -147,14 +147,14 @@ static void BM_VRF_PublicKeyToBytes(benchmark::State &state)
 BENCHMARK(BM_VRF_PublicKeyToBytes)
     ->Unit(benchmark::kNanosecond)
     ->Iterations(1000)
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 static void BM_VRF_PublicKeyFromBytes(benchmark::State &state)
 {
@@ -172,13 +172,13 @@ static void BM_VRF_PublicKeyFromBytes(benchmark::State &state)
 
 BENCHMARK(BM_VRF_PublicKeyFromBytes)
     ->Unit(benchmark::kMicrosecond)
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_FDH_VRF_RSA8192_SHA512))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA2048_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA3072_SHA256))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSASSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_FDH_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 BENCHMARK_MAIN();

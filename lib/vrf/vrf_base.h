@@ -69,14 +69,10 @@ class Serializable
     [[nodiscard]] virtual std::vector<std::byte> to_bytes() const = 0;
 
     /**
-     * Deserializes an object of type T from a span of bytes for the specified VRF type. Returns
-     * nullptr if the deserialization fails or if the provided type is unknown. A successful
-     * deserialization does not indicate that the loaded object is valid or properly initialized.
+     * Deserializes an object from a span of bytes for the specified VRF type. Deserialization
+     * failure is indicated by checking the output of VRFObject::is_initialized().
      */
     virtual void from_bytes(Type type, std::span<const std::byte> data) = 0;
-
-  protected:
-  private:
 };
 
 /**
@@ -96,8 +92,6 @@ class Proof : public VRFObject<Proof>, public Clonable<Proof>, public Serializab
 
   protected:
     using VRFObject<Proof>::VRFObject;
-
-  private:
 };
 
 class PublicKey;
@@ -105,8 +99,7 @@ class PublicKey;
 /**
  * Abstract base class representing a VRF secret key object. The secret key can be used to
  * generate VRF proofs for given inputs, and it can also provide the corresponding public key.
- * The secret key can be cloned and queried for its VRF type. Currently, the secret key cannot
- * be serialized or deserialized.
+ * The secret key can be cloned but cannot be serialized or deserialized.
  */
 class SecretKey : public VRFObject<SecretKey>, public Clonable<SecretKey>
 {
@@ -119,12 +112,13 @@ class SecretKey : public VRFObject<SecretKey>, public Clonable<SecretKey>
      */
     [[nodiscard]] virtual std::unique_ptr<Proof> get_vrf_proof(std::span<const std::byte> in) const = 0;
 
+    /**
+     * Returns the public key corresponding to this secret key.
+     */
     [[nodiscard]] virtual std::unique_ptr<PublicKey> get_public_key() const = 0;
 
   protected:
     using VRFObject<SecretKey>::VRFObject;
-
-  private:
 };
 
 class PublicKey : public VRFObject<PublicKey>, public Clonable<PublicKey>, public Serializable
@@ -132,13 +126,18 @@ class PublicKey : public VRFObject<PublicKey>, public Clonable<PublicKey>, publi
   public:
     virtual ~PublicKey() = default;
 
+    /**
+     * Verifies the given VRF proof against the provided input data using this public key.
+     * If the proof is valid, the function returns a pair where the first element is true
+     * and the second element is the VRF value as a vector of bytes. If the proof is invalid,
+     * the function returns a pair where the first element is false and the second element
+     * is an empty vector.
+     */
     [[nodiscard]] virtual std::pair<bool, std::vector<std::byte>> verify_vrf_proof(
         std::span<const std::byte> in, const std::unique_ptr<Proof> &proof) const = 0;
 
   protected:
     using VRFObject<PublicKey>::VRFObject;
-
-  private:
 };
 
 } // namespace vrf
