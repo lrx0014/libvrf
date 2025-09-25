@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rsa/keys.h"
+#include "vrf/rsa/keys.h"
 #include "vrf/type.h"
 #include "vrf/vrf_base.h"
 #include <cstddef>
@@ -9,12 +9,12 @@
 #include <utility>
 #include <vector>
 
-namespace rsavrf
+namespace vrf::rsavrf
 {
 
 class RSASecretKey;
 
-class RSAProof : public vrf::Proof
+class RSAProof : public Proof
 {
   public:
     RSAProof() = default;
@@ -23,7 +23,7 @@ class RSAProof : public vrf::Proof
 
     [[nodiscard]] std::vector<std::byte> get_vrf_value() const override;
 
-    [[nodiscard]] std::unique_ptr<vrf::Proof> clone() const override
+    [[nodiscard]] std::unique_ptr<Proof> clone() const override
     {
         return std::unique_ptr<RSAProof>(new RSAProof(*this));
     }
@@ -33,14 +33,14 @@ class RSAProof : public vrf::Proof
         return proof_;
     }
 
-    void from_bytes(vrf::Type type, std::span<const std::byte> data) override;
+    void from_bytes(Type type, std::span<const std::byte> data) override;
 
     [[nodiscard]] bool is_initialized() const override;
 
   private:
     RSAProof(const RSAProof &source);
 
-    RSAProof(vrf::Type type, std::vector<std::byte> proof) : vrf::Proof{type}, proof_{std::move(proof)}
+    RSAProof(Type type, std::vector<std::byte> proof) : Proof{type}, proof_{std::move(proof)}
     {
     }
 
@@ -62,25 +62,25 @@ class RSAProof : public vrf::Proof
 
 class RSAPublicKey;
 
-class RSASecretKey : public vrf::SecretKey
+class RSASecretKey : public SecretKey
 {
   public:
     RSASecretKey() = default;
 
     ~RSASecretKey() override = default;
 
-    RSASecretKey(vrf::Type type);
+    RSASecretKey(Type type);
 
-    [[nodiscard]] std::unique_ptr<vrf::Proof> get_vrf_proof(std::span<const std::byte> in) const override;
+    [[nodiscard]] std::unique_ptr<Proof> get_vrf_proof(std::span<const std::byte> in) const override;
 
     [[nodiscard]] bool is_initialized() const override;
 
-    [[nodiscard]] std::unique_ptr<vrf::SecretKey> clone() const override
+    [[nodiscard]] std::unique_ptr<SecretKey> clone() const override
     {
         return std::unique_ptr<RSASecretKey>(new RSASecretKey(*this));
     }
 
-    [[nodiscard]] std::unique_ptr<vrf::PublicKey> get_public_key() const override;
+    [[nodiscard]] std::unique_ptr<PublicKey> get_public_key() const override;
 
   private:
     RSASecretKey &operator=(RSASecretKey &&) noexcept;
@@ -99,7 +99,7 @@ class RSASecretKey : public vrf::SecretKey
     std::vector<std::byte> mgf1_salt_{};
 };
 
-class RSAPublicKey : public vrf::PublicKey
+class RSAPublicKey : public PublicKey
 {
   public:
     RSAPublicKey() = default;
@@ -107,21 +107,21 @@ class RSAPublicKey : public vrf::PublicKey
     ~RSAPublicKey() override = default;
 
     [[nodiscard]] std::pair<bool, std::vector<std::byte>> verify_vrf_proof(
-        std::span<const std::byte> in, const std::unique_ptr<vrf::Proof> &proof) const override;
+        std::span<const std::byte> in, const std::unique_ptr<Proof> &proof) const override;
 
     [[nodiscard]] bool is_initialized() const override;
 
     [[nodiscard]] std::vector<std::byte> to_bytes() const override;
 
-    void from_bytes(vrf::Type type, std::span<const std::byte> data) override;
+    void from_bytes(Type type, std::span<const std::byte> data) override;
 
-    [[nodiscard]] std::unique_ptr<vrf::PublicKey> clone() const override
+    [[nodiscard]] std::unique_ptr<PublicKey> clone() const override
     {
         return std::unique_ptr<RSAPublicKey>{new RSAPublicKey(*this)};
     }
 
   private:
-    RSAPublicKey(vrf::Type type, std::span<const std::byte> der_spki);
+    RSAPublicKey(Type type, std::span<const std::byte> der_spki);
 
     RSAPublicKey &operator=(const RSAPublicKey &) = delete;
 
@@ -141,4 +141,4 @@ class RSAPublicKey : public vrf::PublicKey
     friend class RSASecretKey;
 };
 
-} // namespace rsavrf
+} // namespace vrf::rsavrf

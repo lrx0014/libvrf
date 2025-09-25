@@ -26,7 +26,7 @@ inline constexpr bool is_rsa_type(Type type)
            type == Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384 || type == Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512;
 }
 
-inline constexpr bool is_ec_type(Type type)
+inline constexpr bool is_ec_type(Type)
 {
     // Not implemented.
     return false;

@@ -17,8 +17,8 @@ To build, ensure [vcpkg](https://GitHub.com/Microsoft/vcpkg) is installed and ru
 cmake -B build -S . -GNinja -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=<Debug|Release>
 cmake --build build -j
 ```
-
-After this, the unit test and benchmark executables are available in your build directory.
+Specify `-DLIBVRF_BUILD_TESTS=ON` and `-DLIBVRF_BUILD_BENCHMARKS=ON` to build the test and the benchmark suites.
+After this, the test and benchmark executables are available in your build directory.
 
 ## Implemented VRFs
 
@@ -45,24 +45,28 @@ They are described by the following enum values:
 - `vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512`
 
 The following code snippet creates an RSA-FDH VRF with a 2048-bit key and uses SHA-256 as a hash function.
-The `vrf::VRF` constructor creates the required asymmetric key pair and stores both in memory.
-The `vrf::VRF::is_initialized` member function can be used to test whether the VRF instance was set up successfully for use.
+The `vrf::VRF::Create` function creates a VRF secret key and stores it in memory.
+Failure can be tested by checking that the output is not `nullptr` and the `is_initialized()` member function returns `true`.
 ```cpp
+#include <memory>
+#include <stdexcept>
 #include "vrf/vrf.h"
 
 vrf::Type type = vrf::Type::RSA_FDH_VRF_RSA2048_SHA256;
-vrf::VRF vrf(type);
-if (!vrf.is_initialized()) {
-    throw std::runtime_error("VRF initialization failed");
+std::unique_ptr<vrf::SecretKey> sk = vrf::VRF::Create(type);
+if (!sk || !sk->is_initialized()) {
+    throw std::runtime_error("VRF secret key creation failed");
 }
 ```
 
 ### 2) Accessing keys
 
-Once a `vrf::VRF` instance has been successfully created, the public and secret key can be retrieved as follows:
+Once a `vrf::SecretKey` instance has been successfully created, the public key can be retrieved as follows:
 ```cpp
-std::unique_ptr<vrf::SecretKey> sk = vrf.get_secret_key();
-std::unique_ptr<vrf::PublicKey> pk = vrf.get_public_key();
+std::unique_ptr<vrf::PublicKey> pk = sk->get_public_key();
+if (!pk || !pk->is_initialized()) {
+    throw std::runtime_error("VRF public key creation failed");
+}
 ```
 
 The secret key cannot be serialized, although we may add this capability in the future.
@@ -70,12 +74,15 @@ The public key can be serialized (to a DER-encoded SPKI struct) and deserialized
 ```cpp
 // To serialize
 std::vector<std::byte> der_spki = pk->to_bytes();
+if (der_spki.empty()) {
+    throw std::runtime_error("Failed to serialize public key");
+}
 
 // To deserialize, the caller is responsible for providing the correct type as input.
 // If a type for which the deserialized key is not valid is provided, pk2->is_initialized()
 // will return false.
 std::unique_ptr<vrf::PublicKey> pk2 = vrf::VRF::public_key_from_bytes(type, der_spki);
-if (!pk2->is_initialized()) {
+if (!pk2 || !pk2->is_initialized()) {
     throw std::runtime_error("Deserialization failed");
 }
 ```
@@ -89,7 +96,7 @@ std::vector<std::byte> data = /* your bytes */;
 
 // The proof is sent to the verifier (who has the public key).
 std::unique_ptr<vrf::Proof> proof = sk->get_vrf_proof(data);
-if (!proof) {
+if (!proof || !proof->is_initialized()) {
     throw std::runtime_error("Proof creation failed");
 }
 
@@ -103,22 +110,30 @@ if (!res.first) {
 // The VRF value can also be obtained directly from the proof object as follows.
 // However, this does *not* verify the proof!
 std::vector<std::byte> hash2 = res.second->get_vrf_value();
+if (hash2.empty()) {
+    throw std::runtime_error("Failed to extract VRF value");
+}
 ```
 
 The proof can be serialized and deserialized as follows:
 ```cpp
 // To serialize
 std::vector<std::byte> proof_bytes = proof->to_bytes();
+if (proof_bytes.empty()) {
+    throw std::runtime_error("Failed to serialize proof");
+}
 
 // To deserialize
 std::unique_ptr<vrf::Proof> proof2 = vrf::VRF::proof_from_bytes(type, proof_bytes);
-if (!proof2) {
+if (!proof2 || !proof2->is_initialized()) {
     throw std::runtime_error("Deserialization failed");
 }
 ```
 
 ### 4) Other functions
 
-All of the VRF objects above (`vrf::VRF`, `vrf::SecretKey`, `vrf::PublicKey`, `vrf::Proof`) store their `vrf::Type`.
+All of the VRF objects above (`vrf::SecretKey`, `vrf::PublicKey`, `vrf::Proof`) store their `vrf::Type`.
 This can retrieved using the member function `get_type()`.
 
+Each of the functions taking as input `std::span` of bytes has a flexible set of overloads that accepts spans of other 1-byte types (e.g., `unsigned char`, see the `ByteLike` concept in [vrf/vrf_base.h](vrf/vrf_base.h)), as well as overloads that accept a `std::ranges::contiguous_range` of similar 1-byte types with some limitations (see the `ByteRange` concept in [vrf/vrf_base.h](vrf/vrf_base.h)).
+This means that these functions can be called also by passing directly (by value or reference) `std::vector`, `std:array`, or other similar containers.

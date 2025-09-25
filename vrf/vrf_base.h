@@ -4,10 +4,28 @@
 #include <cstddef>
 #include <memory>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 namespace vrf
 {
+
+template <typename T>
+concept ByteLike = std::is_trivially_copyable_v<T> && !std::is_reference_v<T> && sizeof(T) == 1 &&
+                   !std::same_as<std::remove_cv_t<T>, bool>;
+
+template <typename R>
+concept ByteRange =
+    std::ranges::contiguous_range<R> && ByteLike<std::ranges::range_value_t<R>> && std::ranges::sized_range<R>;
+
+template <ByteRange R>
+inline auto byte_range_to_span(R &in) noexcept -> std::span<const std::remove_cv_t<std::ranges::range_value_t<R>>>
+{
+    using elt_t = std::remove_cv_t<std::ranges::range_value_t<R>>;
+    const elt_t *const data = std::ranges::data(in);
+    const auto size = std::ranges::size(in);
+    return std::span<const elt_t>{data, size};
+};
 
 template <typename T> class VRFObject
 {
@@ -73,6 +91,18 @@ class Serializable
      * failure is indicated by checking the output of VRFObject::is_initialized().
      */
     virtual void from_bytes(Type type, std::span<const std::byte> data) = 0;
+
+    template <ByteLike T, std::size_t N = std::dynamic_extent>
+        requires(!std::same_as<std::remove_cv_t<T>, std::byte>)
+    void from_bytes(Type type, std::span<const T, N> data)
+    {
+        from_bytes(type, std::as_bytes(data));
+    }
+
+    template <ByteRange R> void from_bytes(Type type, R &&data)
+    {
+        from_bytes(type, byte_range_to_span(data));
+    }
 };
 
 /**
@@ -107,10 +137,25 @@ class SecretKey : public VRFObject<SecretKey>, public Clonable<SecretKey>
     virtual ~SecretKey() = default;
 
     /**
-     * Generates a VRF proof for the given input data using this secret key. The input data is
-     * provided as a span of bytes.
+     * Generates a VRF proof for the given input data using this secret key.
      */
     [[nodiscard]] virtual std::unique_ptr<Proof> get_vrf_proof(std::span<const std::byte> in) const = 0;
+
+    /**
+     * Generates a VRF proof for the given input data using this secret key.
+     */
+    template <ByteLike T, std::size_t N = std::dynamic_extent>
+        requires(!std::same_as<std::remove_cv_t<T>, std::byte>)
+    [[nodiscard]]
+    std::unique_ptr<Proof> get_vrf_proof(std::span<const T, N> in) const
+    {
+        return get_vrf_proof(std::as_bytes(in));
+    }
+
+    template <ByteRange R> std::unique_ptr<Proof> get_vrf_proof(R &&in) const
+    {
+        return get_vrf_proof(byte_range_to_span(in));
+    }
 
     /**
      * Returns the public key corresponding to this secret key.
@@ -135,6 +180,28 @@ class PublicKey : public VRFObject<PublicKey>, public Clonable<PublicKey>, publi
      */
     [[nodiscard]] virtual std::pair<bool, std::vector<std::byte>> verify_vrf_proof(
         std::span<const std::byte> in, const std::unique_ptr<Proof> &proof) const = 0;
+
+    /**
+     * Verifies the given VRF proof against the provided input data using this public key.
+     * If the proof is valid, the function returns a pair where the first element is true
+     * and the second element is the VRF value as a vector of bytes. If the proof is invalid,
+     * the function returns a pair where the first element is false and the second element
+     * is an empty vector.
+     */
+    template <ByteLike T, std::size_t N = std::dynamic_extent>
+        requires(!std::same_as<std::remove_cv_t<T>, std::byte>)
+    [[nodiscard]]
+    std::pair<bool, std::vector<std::byte>> verify_vrf_proof(std::span<const T, N> in,
+                                                             const std::unique_ptr<Proof> &proof) const
+    {
+        return verify_vrf_proof(std::as_bytes(in), proof);
+    }
+
+    template <ByteRange R>
+    std::pair<bool, std::vector<std::byte>> verify_vrf_proof(R &&in, const std::unique_ptr<Proof> &proof) const
+    {
+        return verify_vrf_proof(byte_range_to_span(in), proof);
+    }
 
   protected:
     using VRFObject<PublicKey>::VRFObject;

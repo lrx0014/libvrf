@@ -1,5 +1,5 @@
-#include "common.h"
-#include "log.h"
+#include "vrf/common.h"
+#include "vrf/log.h"
 #include <array>
 #include <cstdint>
 #include <openssl/decoder.h>

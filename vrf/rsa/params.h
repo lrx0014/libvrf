@@ -3,7 +3,7 @@
 #include "vrf/type.h"
 #include <openssl/evp.h>
 
-namespace rsavrf
+namespace vrf::rsavrf
 {
 
 struct RSAVRFParams
@@ -20,4 +20,4 @@ struct RSAVRFParams
 
 RSAVRFParams get_rsavrf_params(vrf::Type type);
 
-} // namespace rsavrf
+} // namespace vrf::rsavrf

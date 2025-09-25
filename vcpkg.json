@@ -1,13 +1,25 @@
 {
   "name": "libvrf",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "VRF implementation library in C++",
   "license": "MIT",
   "dependencies": [
     "spdlog",
-    "openssl",
-    "gtest",
-    "benchmark"
+    "openssl"
   ],
+  "features": {
+    "tests": {
+      "description": "Build the test suite.",
+      "dependencies": [
+        "gtest"
+      ]
+    },
+    "benchmarks": {
+      "description": "Build the benchmark suite.",
+      "dependencies": [
+        "benchmark"
+      ]
+    }
+  },
   "builtin-baseline": "b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01"
 }

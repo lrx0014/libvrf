@@ -6,7 +6,7 @@
 #include <span>
 #include <vector>
 
-namespace rsavrf
+namespace vrf::rsavrf
 {
 
 class RSA_SK_Guard
@@ -14,7 +14,7 @@ class RSA_SK_Guard
   public:
     RSA_SK_Guard() = default;
 
-    RSA_SK_Guard(vrf::Type type);
+    RSA_SK_Guard(Type type);
 
     ~RSA_SK_Guard()
     {
@@ -42,7 +42,7 @@ class RSA_SK_Guard
         return nullptr != pkey_;
     }
 
-    [[nodiscard]] vrf::Type get_type() const noexcept
+    [[nodiscard]] Type get_type() const noexcept
     {
         return type_;
     }
@@ -55,15 +55,15 @@ class RSA_SK_Guard
     {
         EVP_PKEY_free(pkey_);
         pkey_ = nullptr;
-        type_ = vrf::Type::UNKNOWN_VRF_TYPE;
+        type_ = Type::UNKNOWN_VRF_TYPE;
     }
 
   private:
-    RSA_SK_Guard(vrf::Type type, EVP_PKEY *pkey) : type_(type), pkey_(pkey) {};
+    RSA_SK_Guard(Type type, EVP_PKEY *pkey) : type_(type), pkey_(pkey) {};
 
-    static EVP_PKEY *generate_rsa_key(vrf::Type type);
+    static EVP_PKEY *generate_rsa_key(Type type);
 
-    vrf::Type type_ = vrf::Type::UNKNOWN_VRF_TYPE;
+    Type type_ = Type::UNKNOWN_VRF_TYPE;
 
     EVP_PKEY *pkey_ = nullptr;
 };
@@ -73,7 +73,7 @@ class RSA_PK_Guard
   public:
     RSA_PK_Guard() = default;
 
-    RSA_PK_Guard(vrf::Type type, std::span<const std::byte> der_spki);
+    RSA_PK_Guard(Type type, std::span<const std::byte> der_spki);
 
     ~RSA_PK_Guard()
     {
@@ -101,7 +101,7 @@ class RSA_PK_Guard
         return nullptr != pkey_;
     }
 
-    [[nodiscard]] vrf::Type get_type() const noexcept
+    [[nodiscard]] Type get_type() const noexcept
     {
         return type_;
     }
@@ -114,13 +114,13 @@ class RSA_PK_Guard
     {
         EVP_PKEY_free(pkey_);
         pkey_ = nullptr;
-        type_ = vrf::Type::UNKNOWN_VRF_TYPE;
+        type_ = Type::UNKNOWN_VRF_TYPE;
     }
 
   private:
-    RSA_PK_Guard(vrf::Type type, EVP_PKEY *pkey) : type_(type), pkey_(pkey) {};
+    RSA_PK_Guard(Type type, EVP_PKEY *pkey) : type_(type), pkey_(pkey) {};
 
-    vrf::Type type_ = vrf::Type::UNKNOWN_VRF_TYPE;
+    Type type_ = Type::UNKNOWN_VRF_TYPE;
 
     EVP_PKEY *pkey_ = nullptr;
 };
@@ -128,4 +128,4 @@ class RSA_PK_Guard
 template <typename T>
 concept RSAGuard = std::same_as<T, RSA_PK_Guard> || std::same_as<T, RSA_SK_Guard>;
 
-} // namespace rsavrf
+} // namespace vrf::rsavrf
