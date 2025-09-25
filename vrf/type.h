@@ -41,7 +41,7 @@ inline constexpr const char *type_to_string(Type type)
     case Type::RSA_FDH_VRF_RSA3072_SHA256:
         return "RSA_FDH_VRF_RSA3072_SHA256";
     case Type::RSA_FDH_VRF_RSA4096_SHA384:
-        return "RSA_FDH_VRF_RSA4096_SHA512";
+        return "RSA_FDH_VRF_RSA4096_SHA384";
     case Type::RSA_FDH_VRF_RSA8192_SHA512:
         return "RSA_FDH_VRF_RSA8192_SHA512";
     case Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256:
@@ -49,7 +49,7 @@ inline constexpr const char *type_to_string(Type type)
     case Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256:
         return "RSA_PSS_NOSALT_VRF_RSA3072_SHA256";
     case Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384:
-        return "RSA_PSS_NOSALT_VRF_RSA4096_SHA512";
+        return "RSA_PSS_NOSALT_VRF_RSA4096_SHA384";
     case Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512:
         return "RSA_PSS_NOSALT_VRF_RSA8192_SHA512";
     default:

@@ -20,7 +20,7 @@ endif()
 # Where to look for our helper modules.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-project(libvrf VERSION 0.3.0 LANGUAGES CXX)
+project(libvrf VERSION 0.3.1 LANGUAGES CXX)
 
 # Define additional directory path variables.
 include(GNUInstallDirs)
