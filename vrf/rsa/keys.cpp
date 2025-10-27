@@ -1,104 +1,98 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include "vrf/rsa/keys.h"
 #include "vrf/common.h"
+#include "vrf/guards.h"
 #include "vrf/log.h"
 #include "vrf/rsa/params.h"
-#include <cstdint>
 #include <openssl/bn.h>
 #include <openssl/core_names.h>
 #include <openssl/decoder.h>
 #include <openssl/params.h>
 #include <span>
 
-namespace vrf::rsavrf
+namespace vrf::rsa
 {
 
 namespace
 {
 
-bool set_rsa_keygen_params(EVP_PKEY_CTX *pctx, Type type)
+bool set_rsa_keygen_params(EVP_PKEY_CTX_Guard &pctx, Type type)
 {
     RSAVRFParams params = get_rsavrf_params(type);
     const OSSL_PARAM params_to_set[] = {OSSL_PARAM_construct_uint(OSSL_PKEY_PARAM_RSA_BITS, &params.bits),
                                         OSSL_PARAM_construct_uint(OSSL_PKEY_PARAM_RSA_PRIMES, &params.primes),
                                         OSSL_PARAM_construct_uint(OSSL_PKEY_PARAM_RSA_E, &params.e), OSSL_PARAM_END};
 
-    return (1 == EVP_PKEY_CTX_set_params(pctx, params_to_set));
+    return (1 == EVP_PKEY_CTX_set_params(pctx.get(), params_to_set));
 }
 
-std::vector<std::byte> generate_mgf1_salt(EVP_PKEY *pkey)
+std::vector<std::byte> generate_mgf1_salt(const EVP_PKEY_Guard &pkey)
 {
     // We need OSSL_PKEY_PARAM_RSA_N to generate the salt.
-    BIGNUM *bn_n = nullptr;
-    if (1 != EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_n))
+    BIGNUM_Guard n{};
+    if (1 != EVP_PKEY_get_bn_param(pkey.get(), OSSL_PKEY_PARAM_RSA_N, n.free_and_get_addr(true)))
     {
         Logger()->error("Failed to retrieve RSA modulus from EVP_PKEY for MGF1 salt generation.");
         return {};
     }
 
     // In the salt, first we have a 4-byte big-endian representation of the length of the RSA modulus.
-    const int n_len = BN_num_bytes(bn_n);
-    const std::uint32_t n_len_u32 = static_cast<std::uint32_t>(n_len);
-    std::vector<std::byte> salt(4 + n_len_u32);
-    salt[0] = static_cast<std::byte>((n_len_u32 >> 24) & 0xFF);
-    salt[1] = static_cast<std::byte>((n_len_u32 >> 16) & 0xFF);
-    salt[2] = static_cast<std::byte>((n_len_u32 >> 8) & 0xFF);
-    salt[3] = static_cast<std::byte>(n_len_u32 & 0xFF);
+    const std::size_t n_len = static_cast<std::size_t>(BN_num_bytes(n.get()));
+    std::vector<std::byte> salt(4 + n_len);
+    salt[0] = static_cast<std::byte>((n_len >> 24) & 0xFF);
+    salt[1] = static_cast<std::byte>((n_len >> 16) & 0xFF);
+    salt[2] = static_cast<std::byte>((n_len >> 8) & 0xFF);
+    salt[3] = static_cast<std::byte>(n_len & 0xFF);
 
     // Next, convert bn_n to a byte array with I2OSP and append to the salt.
-    if (n_len != BN_bn2binpad(bn_n, reinterpret_cast<unsigned char *>(salt.data() + 4), n_len))
+    if (n_len != int_to_bytes_big_endian(n, std::span<std::byte>(salt.data() + 4, n_len)))
     {
         Logger()->error("Failed to convert RSA modulus to byte array for MGF1 salt generation.");
-        BN_free(bn_n);
         return {};
     }
-
-    BN_free(bn_n);
 
     return salt;
 }
 
-bool check_rsa_params(Type type, EVP_PKEY *pkey, bool check_pk, bool check_sk)
+bool check_rsa_params(Type type, EVP_PKEY_Guard &pkey, bool check_pk, bool check_sk)
 {
-    if (!is_rsa_type(type) || nullptr == pkey)
+    if (!is_rsa_type(type) || !pkey.has_value())
     {
         return false;
     }
 
-    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_pkey(common::get_libctx(), pkey, common::get_propquery());
-    if (nullptr == pctx || 1 != EVP_PKEY_param_check(pctx))
+    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_pkey(get_libctx(), pkey.get(), get_propquery())};
+    if (!pctx.has_value() || 1 != EVP_PKEY_param_check(pctx.get()))
     {
-        EVP_PKEY_CTX_free(pctx);
         return false;
     }
 
     // Retrieve n and check that it has the expected size.
     const RSAVRFParams params = get_rsavrf_params(type);
-    BIGNUM *n = nullptr;
-    if (1 != EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &n))
+    BIGNUM_Guard n{};
+    if (1 != EVP_PKEY_get_bn_param(pkey.get(), OSSL_PKEY_PARAM_RSA_N, n.free_and_get_addr(true)))
     {
-        EVP_PKEY_CTX_free(pctx);
         return false;
     }
 
-    const unsigned bits = static_cast<unsigned>(BN_num_bits(n));
+    const unsigned bits = static_cast<unsigned>(BN_num_bits(n.get()));
     if (bits != params.bits)
     {
-        EVP_PKEY_CTX_free(pctx);
         return false;
     }
-
-    // We are done with n.
-    BN_free(n);
 
     if (check_pk)
     {
         // Check that the public key is present.
-        BIGNUM *e = nullptr;
+        BIGNUM_Guard e{};
         bool ret = false;
-        if (1 == EVP_PKEY_public_check(pctx) && 1 == EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &e))
+        if (1 == EVP_PKEY_public_check(pctx.get()) &&
+            1 == EVP_PKEY_get_bn_param(pkey.get(), OSSL_PKEY_PARAM_RSA_E, e.free_and_get_addr(true)))
         {
             // Public key was retrieved. Check that it matches the expected value.
-            BN_ULONG ew = BN_get_word(e);
+            BN_ULONG ew = BN_get_word(e.get());
             if (ew != ~static_cast<BN_ULONG>(0))
             {
                 // Does the exponent match what we expected?
@@ -108,8 +102,6 @@ bool check_rsa_params(Type type, EVP_PKEY *pkey, bool check_pk, bool check_sk)
 
         if (!ret)
         {
-            BN_free(e);
-            EVP_PKEY_CTX_free(pctx);
             return false;
         }
     }
@@ -117,9 +109,8 @@ bool check_rsa_params(Type type, EVP_PKEY *pkey, bool check_pk, bool check_sk)
     // Check that the secret key is present without actually retrieving it.
     if (check_sk)
     {
-        if (1 != EVP_PKEY_private_check(pctx))
+        if (1 != EVP_PKEY_private_check(pctx.get()))
         {
-            EVP_PKEY_CTX_free(pctx);
             return false;
         }
     }
@@ -127,14 +118,12 @@ bool check_rsa_params(Type type, EVP_PKEY *pkey, bool check_pk, bool check_sk)
     // Finally, if both keys are checked, verify that their relationship is valid.
     if (check_pk && check_sk)
     {
-        if (1 != EVP_PKEY_pairwise_check(pctx))
+        if (1 != EVP_PKEY_pairwise_check(pctx.get()))
         {
-            EVP_PKEY_CTX_free(pctx);
             return false;
         }
     }
 
-    EVP_PKEY_CTX_free(pctx);
     return true;
 }
 
@@ -144,83 +133,76 @@ RSA_SK_Guard &RSA_SK_Guard::operator=(RSA_SK_Guard &&rhs) noexcept
 {
     if (this != &rhs)
     {
-        reset();
-        type_ = rhs.type_;
-        pkey_ = rhs.pkey_;
-        rhs.type_ = Type::UNKNOWN_VRF_TYPE;
-        rhs.pkey_ = nullptr;
+        using std::swap;
+        swap(type_, rhs.type_);
+        swap(pkey_, rhs.pkey_);
     }
     return *this;
 }
 
-EVP_PKEY *RSA_SK_Guard::generate_rsa_key(Type type)
+EVP_PKEY_Guard RSA_SK_Guard::generate_rsa_key(Type type)
 {
     if (!is_rsa_type(type))
     {
         Logger()->warn("generate_rsa_key called with non-RSA VRF type: {}", type_to_string(type));
-        return nullptr;
+        return {};
     }
 
     const RSAVRFParams params = get_rsavrf_params(type);
     const char *algorithm_name = params.algorithm_name;
-    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_name(common::get_libctx(), algorithm_name, common::get_propquery());
-    if (nullptr == pctx)
+    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_name(get_libctx(), algorithm_name, get_propquery())};
+    if (!pctx.has_value())
     {
         Logger()->error("Failed to create EVP_PKEY_CTX for RSA key generation.");
-        return nullptr;
+        return {};
     }
 
-    if (0 >= EVP_PKEY_keygen_init(pctx))
+    if (0 >= EVP_PKEY_keygen_init(pctx.get()))
     {
         Logger()->error("Failed to initialize RSA key generation; EVP_PKEY_keygen_init failed");
-        EVP_PKEY_CTX_free(pctx);
-        return nullptr;
+        return {};
     }
 
     if (!set_rsa_keygen_params(pctx, type))
     {
         Logger()->error("Failed to set RSA key generation parameters; set_rsa_keygen_params failed");
-        EVP_PKEY_CTX_free(pctx);
-        return nullptr;
+        return {};
     }
 
-    EVP_PKEY *pkey = nullptr;
-    if (1 != EVP_PKEY_generate(pctx, &pkey))
+    EVP_PKEY_Guard pkey{};
+    if (1 != EVP_PKEY_generate(pctx.get(), pkey.free_and_get_addr()))
     {
         Logger()->error("Failed to generate RSA key pair; EVP_PKEY_generate failed}");
-        EVP_PKEY_CTX_free(pctx);
-        return nullptr;
+        return {};
     }
-
-    EVP_PKEY_CTX_free(pctx);
 
     return pkey;
 }
 
-RSA_SK_Guard::RSA_SK_Guard(Type type) : type_(Type::UNKNOWN_VRF_TYPE), pkey_(nullptr)
+RSA_SK_Guard::RSA_SK_Guard(Type type) : type_{Type::UNKNOWN}, pkey_{nullptr}
 {
-    EVP_PKEY *pkey = generate_rsa_key(type);
-    if (nullptr == pkey)
+    EVP_PKEY_Guard pkey{generate_rsa_key(type)};
+    if (!pkey.has_value())
     {
-        Logger()->warn("RSA_PKEY_Guard constructor failed to generate RSA key.");
+        Logger()->error("RSA_PKEY_Guard constructor failed to generate RSA key.");
     }
     else
     {
         type_ = type;
-        pkey_ = pkey;
+        pkey_ = std::move(pkey);
     }
 }
 
 RSA_SK_Guard RSA_SK_Guard::clone() const
 {
-    return {type_, common::evp_pkey_upref(pkey_)};
+    return {type_, pkey_.clone()};
 }
 
 std::vector<std::byte> RSA_SK_Guard::get_mgf1_salt() const
 {
-    if (nullptr == pkey_)
+    if (!pkey_.has_value())
     {
-        Logger()->warn("get_mgf1_salt called on uninitialized RSA_SK_Guard.");
+        Logger()->error("get_mgf1_salt called on uninitialized RSA_SK_Guard.");
         return {};
     }
 
@@ -231,21 +213,46 @@ RSA_PK_Guard &RSA_PK_Guard::operator=(RSA_PK_Guard &&rhs) noexcept
 {
     if (this != &rhs)
     {
-        reset();
-        type_ = rhs.type_;
-        pkey_ = rhs.pkey_;
-        rhs.type_ = Type::UNKNOWN_VRF_TYPE;
-        rhs.pkey_ = nullptr;
+        using std::swap;
+        swap(type_, rhs.type_);
+        swap(pkey_, rhs.pkey_);
     }
     return *this;
 }
 
-RSA_PK_Guard::RSA_PK_Guard(Type type, std::span<const std::byte> der_spki)
-    : type_(Type::UNKNOWN_VRF_TYPE), pkey_(nullptr)
+RSA_PK_Guard::RSA_PK_Guard(const RSA_SK_Guard &sk_guard) : type_{Type::UNKNOWN}, pkey_{}
+{
+    if (!sk_guard.has_value())
+    {
+        Logger()->warn("RSA_PK_Guard constructor called with uninitialized RSA_SK_Guard.");
+        return;
+    }
+
+    const std::vector<std::byte> der_spki = encode_public_key_to_der_spki(sk_guard.get());
+    if (der_spki.empty())
+    {
+        Logger()->warn("RSA_PK_Guard constructor failed to encode public key from RSA_SK_Guard.");
+        return;
+    }
+
+    // Use the DER SPKI constructor to initialize.
+    RSA_PK_Guard pk_guard{sk_guard.get_type(), der_spki};
+    if (!pk_guard.has_value())
+    {
+        Logger()->warn("RSA_PK_Guard constructor failed to create from DER SPKI of RSA_SK_Guard.");
+        return;
+    }
+
+    // Everything OK. Move the data.
+    type_ = pk_guard.type_;
+    pkey_ = std::move(pk_guard.pkey_);
+}
+
+RSA_PK_Guard::RSA_PK_Guard(Type type, std::span<const std::byte> der_spki) : type_(Type::UNKNOWN), pkey_(nullptr)
 {
     const RSAVRFParams params = get_rsavrf_params(type);
-    EVP_PKEY *pkey = common::decode_public_key_from_der_spki(params.algorithm_name, der_spki);
-    if (nullptr == pkey)
+    EVP_PKEY_Guard pkey{decode_public_key_from_der_spki(params.algorithm_name, der_spki)};
+    if (!pkey.has_value())
     {
         Logger()->warn("RSA_PK_Guard constructor failed to load EVP_PKEY from provided DER SPKI.");
         return;
@@ -254,24 +261,23 @@ RSA_PK_Guard::RSA_PK_Guard(Type type, std::span<const std::byte> der_spki)
     // We need to still check that the loaded public key matches the expected parameters.
     if (!check_rsa_params(type, pkey, true /* check_pk */, false /* check_sk */))
     {
-        EVP_PKEY_free(pkey);
         Logger()->warn("RSA_PK_Guard constructor found mismatched or invalid RSA parameters in provided DER SPKI.");
         return;
     }
 
     // Everything OK. Store the pkey and set the type.
-    pkey_ = pkey;
+    pkey_ = std::move(pkey);
     type_ = type;
 }
 
 RSA_PK_Guard RSA_PK_Guard::clone() const
 {
-    return {type_, common::evp_pkey_upref(pkey_)};
+    return {type_, pkey_.clone()};
 }
 
 std::vector<std::byte> RSA_PK_Guard::get_mgf1_salt() const
 {
-    if (nullptr == pkey_)
+    if (!pkey_.has_value())
     {
         Logger()->warn("get_mgf1_salt called on uninitialized RSA_PK_Guard.");
         return {};
@@ -280,4 +286,4 @@ std::vector<std::byte> RSA_PK_Guard::get_mgf1_salt() const
     return generate_mgf1_salt(pkey_);
 }
 
-} // namespace vrf::rsavrf
+} // namespace vrf::rsa

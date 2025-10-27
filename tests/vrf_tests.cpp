@@ -1,31 +1,41 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include "vrf/vrf.h"
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstddef>
 #include <gtest/gtest.h>
+#include <limits>
 #include <random>
 
 namespace
 {
+
 std::vector<std::byte> random_bytes(std::size_t length)
 {
-    std::vector<std::byte> bytes(length);
+    using word_t = std::uint64_t;
+    std::size_t word_length = (length + sizeof(word_t) - 1) / sizeof(word_t);
+    std::vector<word_t> words(word_length);
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<unsigned char> dis(0, 255);
+    std::uniform_int_distribution<std::uint64_t> dis(0, std::numeric_limits<word_t>::max());
 
-    for (std::size_t i = 0; i < length; ++i)
+    for (std::size_t i = 0; i < word_length; ++i)
     {
-        bytes[i] = static_cast<std::byte>(dis(gen));
+        words[i] = dis(gen);
     }
 
-    return bytes;
-}
-} // namespace
+    std::vector<std::byte> result(length);
+    std::copy(reinterpret_cast<std::byte*>(words.data()),
+              reinterpret_cast<std::byte*>(words.data()) + length,
+              result.data());
 
-int main(int argc, char **argv)
-{
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    return result;
 }
+
+} // namespace
 
 class VRFTest : public testing::TestWithParam<vrf::Type>
 {
@@ -153,17 +163,39 @@ TEST_P(VRFTest, ValueIsDeterministic)
     ASSERT_EQ(proof1->to_bytes(), proof2->to_bytes());
     ASSERT_EQ(hash1, hash2);
 
-    // Invert all bits in data.
-    std::vector<std::byte> different_data(data.size());
-    for (std::size_t i = 0; i < data.size(); ++i)
     {
-        different_data[i] = ~data[i];
+        // Invert the first bit in data.
+        std::vector<std::byte> different_data = data;
+        different_data[0] ^= std::byte{0x01};
+        auto proof3 = sk->get_vrf_proof(different_data);
+        auto [success3, hash3] = pk->verify_vrf_proof(different_data, proof3);
+        ASSERT_TRUE(success3);
+        ASSERT_FALSE(hash3.empty());
+        ASSERT_NE(proof1->to_bytes(), proof3->to_bytes());
     }
-    auto proof3 = sk->get_vrf_proof(different_data);
-    auto [success3, hash3] = pk->verify_vrf_proof(different_data, proof3);
-    ASSERT_TRUE(success3);
-    ASSERT_FALSE(hash3.empty());
-    ASSERT_NE(proof1->to_bytes(), proof3->to_bytes());
+    {
+        // Invert the last bit in data.
+        std::vector<std::byte> different_data = data;
+        different_data[different_data.size() - 1] ^= std::byte{0x01};
+        auto proof3 = sk->get_vrf_proof(different_data);
+        auto [success3, hash3] = pk->verify_vrf_proof(different_data, proof3);
+        ASSERT_TRUE(success3);
+        ASSERT_FALSE(hash3.empty());
+        ASSERT_NE(proof1->to_bytes(), proof3->to_bytes());
+    }
+    {
+        // Invert all bits in data.
+        std::vector<std::byte> different_data(data.size());
+        for (std::size_t i = 0; i < data.size(); ++i)
+        {
+            different_data[i] = ~data[i];
+        }
+        auto proof3 = sk->get_vrf_proof(different_data);
+        auto [success3, hash3] = pk->verify_vrf_proof(different_data, proof3);
+        ASSERT_TRUE(success3);
+        ASSERT_FALSE(hash3.empty());
+        ASSERT_NE(proof1->to_bytes(), proof3->to_bytes());
+    }
 }
 
 TEST_P(VRFTest, InvalidProof)
@@ -299,7 +331,7 @@ TEST(VRFTest, InputFlexibility)
         ASSERT_FALSE(hash.empty());
     }
 
-    // Load key from unsigned char vector.
+    // Get data from unsigned char vector.
     {
         std::vector<unsigned char> data = {'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd'};
         auto proof = sk->get_vrf_proof(data);
@@ -310,7 +342,7 @@ TEST(VRFTest, InputFlexibility)
         ASSERT_FALSE(hash.empty());
     }
 
-    // Load key from array of std::uint8_t.
+    // Get data from array of std::uint8_t.
     {
         std::array<std::uint8_t, 11> data = {'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd'};
         auto proof = sk->get_vrf_proof(data);
@@ -321,7 +353,7 @@ TEST(VRFTest, InputFlexibility)
         ASSERT_FALSE(hash.empty());
     }
 
-    // Load data from a temporary object.
+    // Get data from a temporary object.
     {
         auto proof = sk->get_vrf_proof(std::string("hello world"));
         ASSERT_NE(proof, nullptr);
@@ -339,3 +371,5 @@ INSTANTIATE_TEST_SUITE_P(RSAVRFTypes, VRFTest,
                                          vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256,
                                          vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384,
                                          vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+
+INSTANTIATE_TEST_SUITE_P(ECVRFTypes, VRFTest, testing::Values(vrf::Type::EC_VRF_P256_SHA256_TAI));

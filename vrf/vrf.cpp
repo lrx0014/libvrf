@@ -1,4 +1,8 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include "vrf/vrf.h"
+#include "vrf/ec/ecvrf.h"
 #include "vrf/log.h"
 #include "vrf/rsa/rsavrf.h"
 
@@ -9,13 +13,11 @@ std::unique_ptr<SecretKey> VRF::Create(Type type)
 {
     if (is_rsa_type(type))
     {
-        return std::unique_ptr<SecretKey>(new rsavrf::RSASecretKey{type});
+        return std::unique_ptr<SecretKey>{new rsa::RSASecretKey{type}};
     }
     else if (is_ec_type(type))
     {
-        // Not implemented.
-        Logger()->error("VRF type {} is not supported", type_to_string(type));
-        return nullptr;
+        return std::unique_ptr<SecretKey>{new ec::ECSecretKey{type}};
     }
     else
     {
@@ -30,12 +32,11 @@ std::unique_ptr<Proof> VRF::proof_from_bytes(Type type, std::span<const std::byt
 
     if (is_rsa_type(type))
     {
-        proof.reset(new rsavrf::RSAProof{});
+        proof.reset(new rsa::RSAProof{});
     }
     else if (is_ec_type(type))
     {
-        // Not implemented.
-        Logger()->warn("VRF type {} is not supported", type_to_string(type));
+        proof.reset(new ec::ECProof{});
     }
     else
     {
@@ -64,12 +65,11 @@ std::unique_ptr<PublicKey> VRF::public_key_from_bytes(Type type, std::span<const
 
     if (is_rsa_type(type))
     {
-        pk.reset(new rsavrf::RSAPublicKey{});
+        pk.reset(new rsa::RSAPublicKey{});
     }
     else if (is_ec_type(type))
     {
-        // Not implemented.
-        Logger()->warn("VRF type {} is not supported", type_to_string(type));
+        pk.reset(new ec::ECPublicKey{});
     }
     else
     {

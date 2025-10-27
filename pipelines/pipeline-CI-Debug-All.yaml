@@ -1,0 +1,30 @@
+# This defines a pipeline to build on Windows, Linux, and macOS in Debug mode.
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - CONTRIBUTING.md
+    - CODE_OF_CONDUCT.md
+    - LICENSE
+    - README.md
+
+stages:
+  - stage: build
+    displayName: Build
+    jobs:
+    - template: jobs.yaml
+      parameters:
+        debug: true
+        name: Windows
+    - template: jobs.yaml
+      parameters:
+        debug: true
+        name: Linux 
+    - template: jobs.yaml
+      parameters:
+        debug: true
+        name: macOS

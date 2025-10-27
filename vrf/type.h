@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #pragma once
 
 #include <cstddef>
@@ -15,7 +18,8 @@ enum class Type : std::size_t
     RSA_PSS_NOSALT_VRF_RSA3072_SHA256,
     RSA_PSS_NOSALT_VRF_RSA4096_SHA384,
     RSA_PSS_NOSALT_VRF_RSA8192_SHA512,
-    UNKNOWN_VRF_TYPE
+    EC_VRF_P256_SHA256_TAI,
+    UNKNOWN
 };
 
 inline constexpr bool is_rsa_type(Type type)
@@ -26,10 +30,9 @@ inline constexpr bool is_rsa_type(Type type)
            type == Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384 || type == Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512;
 }
 
-inline constexpr bool is_ec_type(Type)
+inline constexpr bool is_ec_type(Type type)
 {
-    // Not implemented.
-    return false;
+    return type == Type::EC_VRF_P256_SHA256_TAI;
 }
 
 inline constexpr const char *type_to_string(Type type)
@@ -52,6 +55,8 @@ inline constexpr const char *type_to_string(Type type)
         return "RSA_PSS_NOSALT_VRF_RSA4096_SHA384";
     case Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512:
         return "RSA_PSS_NOSALT_VRF_RSA8192_SHA512";
+    case Type::EC_VRF_P256_SHA256_TAI:
+        return "EC_VRF_P256_SHA256_TAI";
     default:
         return "Unknown VRF Type";
     }

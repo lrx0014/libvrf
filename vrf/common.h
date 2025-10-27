@@ -1,57 +1,204 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <openssl/evp.h>
 #include <openssl/types.h>
+#include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
-namespace vrf::common
+namespace vrf
 {
 
+[[nodiscard]]
 OSSL_LIB_CTX *get_libctx();
 
+[[nodiscard]]
 const char *get_propquery();
 
-EVP_PKEY *decode_public_key_from_der_spki(const char *algorithm_name, std::span<const std::byte> der_spki);
-
-std::vector<std::byte> encode_public_key_to_der_spki(EVP_PKEY *pkey);
-
-EVP_PKEY *evp_pkey_upref(EVP_PKEY *pkey);
-
-class MD_CTX_Guard
+class SecureBuf
 {
   public:
-    MD_CTX_Guard(bool oneshot_only);
+    SecureBuf() = default;
 
-    ~MD_CTX_Guard()
+    explicit SecureBuf(std::size_t size);
+
+    SecureBuf(const SecureBuf &) = delete;
+
+    SecureBuf &operator=(const SecureBuf &) = delete;
+
+    SecureBuf &operator=(SecureBuf &&rhs) noexcept;
+
+    SecureBuf(SecureBuf &&other) noexcept : size_(0), buf_(nullptr)
     {
-        EVP_MD_CTX_free(mctx_);
-        mctx_ = nullptr;
+        *this = std::move(other);
     }
 
-    MD_CTX_Guard(const MD_CTX_Guard &) = delete;
+    ~SecureBuf();
 
-    MD_CTX_Guard(MD_CTX_Guard &&) = delete;
-
-    MD_CTX_Guard &operator=(const MD_CTX_Guard &) = delete;
-
-    MD_CTX_Guard &operator=(MD_CTX_Guard &&) = delete;
-
-    [[nodiscard]] EVP_MD_CTX *get() const noexcept
+    bool has_value() const noexcept
     {
-        return mctx_;
+        return nullptr != buf_ && size_ > 0;
     }
 
-    [[nodiscard]] bool has_value() const noexcept
+    [[nodiscard]]
+    operator std::span<std::byte>() & noexcept
     {
-        return nullptr != mctx_;
+        return {buf_, size_};
+    }
+    [[nodiscard]]
+    operator std::span<const std::byte>() const & noexcept
+    {
+        return {buf_, size_};
+    }
+
+    // No span-conversion on temporaries!
+    operator std::span<std::byte>() && = delete;
+
+    operator std::span<const std::byte>() && = delete;
+
+    [[nodiscard]]
+    std::size_t size() const noexcept
+    {
+        return size_;
+    }
+
+    [[nodiscard]]
+    std::byte *get() noexcept
+    {
+        return buf_;
+    }
+
+    [[nodiscard]]
+    const std::byte *get() const noexcept
+    {
+        return buf_;
     }
 
   private:
-    EVP_MD_CTX *mctx_ = nullptr;
+    std::size_t size_ = 0;
+
+    std::byte *buf_ = nullptr;
 };
 
-std::vector<std::byte> compute_hash(const char *md_name, std::span<const std::byte> tbh);
+[[nodiscard]]
+EVP_PKEY *decode_public_key_from_der_spki(const char *algorithm_name, std::span<const std::byte> der_spki);
 
-} // namespace vrf::common
+[[nodiscard]]
+std::vector<std::byte> encode_public_key_to_der_spki(const EVP_PKEY *pkey);
+
+EVP_PKEY *evp_pkey_upref(EVP_PKEY *pkey);
+
+[[nodiscard]]
+extern std::vector<std::byte> compute_hash(const char *md_name, std::span<const std::byte> tbh);
+
+template <std::unsigned_integral... Ts> using unsigned_common_t = std::make_unsigned_t<std::common_type_t<Ts...>>;
+
+template <std::unsigned_integral T, std::unsigned_integral S>
+[[nodiscard]]
+constexpr bool add_with_overflow(T a, S b, unsigned_common_t<T, S> &c) noexcept
+{
+    using U = unsigned_common_t<T, S>;
+    const U au = static_cast<U>(a);
+    const U bu = static_cast<U>(b);
+    c = au + bu;
+    if (au > std::numeric_limits<U>::max() - bu)
+    {
+        return true;
+    }
+    return false;
+}
+
+template <std::unsigned_integral... Ts>
+[[nodiscard]]
+constexpr std::optional<unsigned_common_t<Ts...>> safe_add(Ts... args) noexcept
+    requires(sizeof...(Ts) >= 2)
+{
+    using result_t = unsigned_common_t<Ts...>;
+    result_t sum{};
+    bool overflow = (add_with_overflow(sum, args, sum) || ...);
+    if (overflow)
+    {
+        return std::nullopt;
+    }
+    return sum;
+}
+
+// Forward declaration of BIGNUM_Guard to avoid including guards.h here.
+class BIGNUM_Guard;
+
+enum class BytesToIntMethod
+{
+    UNDEFINED = 0,
+    BE = 1,
+    LE = 2,
+};
+
+using bytes_to_int_ptr_t = BIGNUM_Guard (*)(std::span<const std::byte> in, bool secure);
+
+extern bytes_to_int_ptr_t bytes_to_int_big_endian;
+extern bytes_to_int_ptr_t bytes_to_int_little_endian;
+
+[[nodiscard]]
+constexpr bytes_to_int_ptr_t get_bytes_to_int_method(BytesToIntMethod method)
+{
+    switch (method)
+    {
+    case BytesToIntMethod::BE:
+        return bytes_to_int_big_endian;
+    case BytesToIntMethod::LE:
+        return bytes_to_int_little_endian;
+    default:
+        return nullptr;
+    }
+}
+
+using int_to_bytes_ptr_t = std::size_t (*)(const BIGNUM_Guard &bn, std::span<std::byte> out);
+
+extern int_to_bytes_ptr_t int_to_bytes_big_endian;
+extern int_to_bytes_ptr_t int_to_bytes_little_endian;
+
+[[nodiscard]]
+constexpr int_to_bytes_ptr_t get_int_to_bytes_method(BytesToIntMethod method)
+{
+    switch (method)
+    {
+    case BytesToIntMethod::BE:
+        return int_to_bytes_big_endian;
+    case BytesToIntMethod::LE:
+        return int_to_bytes_little_endian;
+    default:
+        return nullptr;
+    }
+}
+
+enum class Curve : int
+{
+    UNDEFINED = NID_undef,
+    SECP256K1 = NID_secp256k1,
+};
+
+[[nodiscard]]
+constexpr int curve_to_nid(Curve curve) noexcept
+{
+    return static_cast<int>(curve);
+}
+
+[[nodiscard]]
+constexpr Curve nid_to_curve(int nid) noexcept
+{
+    switch (nid)
+    {
+    case NID_secp256k1:
+        return Curve::SECP256K1;
+    default:
+        return Curve::UNDEFINED;
+    }
+}
+
+} // namespace vrf

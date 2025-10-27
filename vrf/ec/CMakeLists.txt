@@ -8,27 +8,21 @@ endif()
 
 # Add the source files from this directory.
 set(libvrf_SOURCE_FILES ${libvrf_SOURCE_FILES}
-    ${CMAKE_CURRENT_LIST_DIR}/bnconv.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/common.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/guards.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/hash.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/log.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/vrf.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ecpoint.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ecvrf.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/params.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/utils.cpp
 )
 
 install(
     FILES
-        ${CMAKE_CURRENT_LIST_DIR}/common.h
-        ${CMAKE_CURRENT_LIST_DIR}/guards.h
-        ${CMAKE_CURRENT_LIST_DIR}/type.h
-        ${CMAKE_CURRENT_LIST_DIR}/vrf.h
-        ${CMAKE_CURRENT_LIST_DIR}/vrf_base.h
+        ${CMAKE_CURRENT_LIST_DIR}/ecpoint.h
+        ${CMAKE_CURRENT_LIST_DIR}/ecvrf.h
+        ${CMAKE_CURRENT_LIST_DIR}/params.h
+        ${CMAKE_CURRENT_LIST_DIR}/utils.h
     DESTINATION
-        ${libvrf_INCLUDES_INSTALL_DIR}/vrf
+        ${libvrf_INCLUDES_INSTALL_DIR}/vrf/ec
 )
-
-add_subdirectory(ec)
-add_subdirectory(rsa)
 
 # Update libvrf_SOURCE_FILES variable in the parent scope.
 set(libvrf_SOURCE_FILES ${libvrf_SOURCE_FILES} PARENT_SCOPE)

@@ -1,9 +1,11 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #pragma once
 
 #include "vrf/type.h"
-#include <openssl/evp.h>
 
-namespace vrf::rsavrf
+namespace vrf::rsa
 {
 
 struct RSAVRFParams
@@ -18,6 +20,7 @@ struct RSAVRFParams
     std::size_t suite_string_len = 0;
 };
 
-RSAVRFParams get_rsavrf_params(vrf::Type type);
+[[nodiscard]]
+RSAVRFParams get_rsavrf_params(Type type) noexcept;
 
-} // namespace vrf::rsavrf
+} // namespace vrf::rsa

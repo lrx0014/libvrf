@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include "vrf/vrf.h"
 #include <benchmark/benchmark.h>
 
@@ -21,7 +24,8 @@ BENCHMARK(BM_VRF_GenerateKeys)
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::EC_VRF_P256_SHA256_TAI));
 
 static void BM_VRF_GenerateProof(benchmark::State &state)
 {
@@ -45,7 +49,8 @@ BENCHMARK(BM_VRF_GenerateProof)
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::EC_VRF_P256_SHA256_TAI));
 
 static void BM_VRF_VerifyProof(benchmark::State &state)
 {
@@ -72,7 +77,8 @@ BENCHMARK(BM_VRF_VerifyProof)
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::EC_VRF_P256_SHA256_TAI));
 
 static void BM_VRF_ProofToBytes(benchmark::State &state)
 {
@@ -98,7 +104,8 @@ BENCHMARK(BM_VRF_ProofToBytes)
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::EC_VRF_P256_SHA256_TAI));
 
 static void BM_VRF_ProofFromBytes(benchmark::State &state)
 {
@@ -125,7 +132,8 @@ BENCHMARK(BM_VRF_ProofFromBytes)
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::EC_VRF_P256_SHA256_TAI));
 
 static void BM_VRF_PublicKeyToBytes(benchmark::State &state)
 {
@@ -150,7 +158,8 @@ BENCHMARK(BM_VRF_PublicKeyToBytes)
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::EC_VRF_P256_SHA256_TAI));
 
 static void BM_VRF_PublicKeyFromBytes(benchmark::State &state)
 {
@@ -175,6 +184,7 @@ BENCHMARK(BM_VRF_PublicKeyFromBytes)
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256))
     ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384))
-    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+    ->Arg(static_cast<std::size_t>(vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512))
+    ->Arg(static_cast<std::size_t>(vrf::Type::EC_VRF_P256_SHA256_TAI));
 
 BENCHMARK_MAIN();

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #pragma once
 
 #include "vrf/type.h"
@@ -10,14 +13,27 @@
 namespace vrf
 {
 
+/**
+ * Concept representing types that can be treated as single bytes. This is only used for serialization.
+ * Internally, all binary data is handled as std::byte arrays.
+ */
 template <typename T>
 concept ByteLike = std::is_trivially_copyable_v<T> && !std::is_reference_v<T> && sizeof(T) == 1 &&
                    !std::same_as<std::remove_cv_t<T>, bool>;
 
+/**
+ * Concept representing ranges of byte-like elements that can be treated as contiguous byte arrays.
+ * This is only used for serialization. Internally, all binary data is handled as std::byte arrays.
+ */
 template <typename R>
 concept ByteRange =
     std::ranges::contiguous_range<R> && ByteLike<std::ranges::range_value_t<R>> && std::ranges::sized_range<R>;
 
+/**
+ * Converts a byte range to a span of const bytes. Importantly, the input range is passed by reference
+ * to ensure that temporary ranges are not accepted. Otherwise, the returned span would point to destroyed
+ * data. The caller must ensure that the input range remains valid while the returned span is used.
+ */
 template <ByteRange R>
 inline auto byte_range_to_span(R &in) noexcept -> std::span<const std::remove_cv_t<std::ranges::range_value_t<R>>>
 {
@@ -27,6 +43,10 @@ inline auto byte_range_to_span(R &in) noexcept -> std::span<const std::remove_cv
     return std::span<const elt_t>{data, size};
 };
 
+/**
+ * Abstract base class representing a VRF object associated with a specific VRF type. This class provides
+ * common functionality for VRF-related objects such as secret keys, public keys, and proofs.
+ */
 template <typename T> class VRFObject
 {
   public:
@@ -35,13 +55,15 @@ template <typename T> class VRFObject
     /**
      * Checks whether this object is properly initialized.
      */
-    [[nodiscard]] virtual bool is_initialized() const = 0;
+    [[nodiscard]]
+    virtual bool is_initialized() const noexcept = 0;
 
     /**
      * Returns the VRF type associated with this object. For the full list of supported types,
      * see vrf::Type in vrf/type.h.
      */
-    [[nodiscard]] Type get_type() const noexcept
+    [[nodiscard]]
+    Type get_type() const noexcept
     {
         return type_;
     }
@@ -59,23 +81,38 @@ template <typename T> class VRFObject
 
     VRFObject &operator=(VRFObject<T> &&) = delete;
 
+    /**
+     * Sets the VRF type for this object.
+     */
     void set_type(Type type) noexcept
     {
         type_ = type;
     }
 
   private:
-    Type type_ = Type::UNKNOWN_VRF_TYPE;
+    Type type_ = Type::UNKNOWN;
 };
 
+/**
+ * Abstract base class representing a clonable VRF object. Derived classes must implement the clone() method
+ * to return a unique pointer to a new instance of the derived type.
+ */
 template <typename T> class Clonable
 {
   public:
     virtual ~Clonable() = default;
 
-    [[nodiscard]] virtual std::unique_ptr<T> clone() const = 0;
+    /**
+     * Creates a deep copy of this object and returns it as a unique pointer.
+     */
+    [[nodiscard]]
+    virtual std::unique_ptr<T> clone() const = 0;
 };
 
+/**
+ * Abstract base class representing a serializable VRF object. Derived classes must implement the to_bytes()
+ * and from_bytes() methods for serialization and deserialization.
+ */
 class Serializable
 {
   public:
@@ -84,14 +121,19 @@ class Serializable
     /**
      * Serializes the object into a vector of bytes.
      */
-    [[nodiscard]] virtual std::vector<std::byte> to_bytes() const = 0;
+    [[nodiscard]]
+    virtual std::vector<std::byte> to_bytes() = 0;
 
     /**
-     * Deserializes an object from a span of bytes for the specified VRF type. Deserialization
-     * failure is indicated by checking the output of VRFObject::is_initialized().
+     * Deserializes an object from a span of bytes for the specified VRF type. Deserialization failure is
+     * indicated by checking the output of VRFObject::is_initialized().
      */
     virtual void from_bytes(Type type, std::span<const std::byte> data) = 0;
 
+    /**
+     * Deserializes an object from a span of byte-like elements for the specified VRF type. Deserialization
+     * failure is indicated by checking the output of VRFObject::is_initialized().
+     */
     template <ByteLike T, std::size_t N = std::dynamic_extent>
         requires(!std::same_as<std::remove_cv_t<T>, std::byte>)
     void from_bytes(Type type, std::span<const T, N> data)
@@ -99,6 +141,10 @@ class Serializable
         from_bytes(type, std::as_bytes(data));
     }
 
+    /**
+     * Deserializes an object from a byte range for the specified VRF type. Deserialization failure is
+     * indicated by checking the output of VRFObject::is_initialized().
+     */
     template <ByteRange R> void from_bytes(Type type, R &&data)
     {
         from_bytes(type, byte_range_to_span(data));
@@ -106,8 +152,8 @@ class Serializable
 };
 
 /**
- * Abstract base class representing a VRF proof object. The proof object can be serialized
- * to and deserialized from a byte array. It can also be used to extract the VRF value itself.
+ * Abstract base class representing a VRF proof object. The proof object can be serialized to and
+ * deserialized from a byte array. It can also be used to extract the VRF value itself.
  */
 class Proof : public VRFObject<Proof>, public Clonable<Proof>, public Serializable
 {
@@ -115,10 +161,11 @@ class Proof : public VRFObject<Proof>, public Clonable<Proof>, public Serializab
     virtual ~Proof() = default;
 
     /**
-     * Returns the VRF value associated with this proof as a vector of bytes. The length of
-     * the returned vector depends on the VRF type.
+     * Returns the VRF value associated with this proof as a vector of bytes. The length of the
+     * returned vector depends on the VRF type.
      */
-    [[nodiscard]] virtual std::vector<std::byte> get_vrf_value() const = 0;
+    [[nodiscard]]
+    virtual std::vector<std::byte> get_vrf_value() const = 0;
 
   protected:
     using VRFObject<Proof>::VRFObject;
@@ -139,7 +186,8 @@ class SecretKey : public VRFObject<SecretKey>, public Clonable<SecretKey>
     /**
      * Generates a VRF proof for the given input data using this secret key.
      */
-    [[nodiscard]] virtual std::unique_ptr<Proof> get_vrf_proof(std::span<const std::byte> in) const = 0;
+    [[nodiscard]]
+    virtual std::unique_ptr<Proof> get_vrf_proof(std::span<const std::byte> in) = 0;
 
     /**
      * Generates a VRF proof for the given input data using this secret key.
@@ -147,12 +195,17 @@ class SecretKey : public VRFObject<SecretKey>, public Clonable<SecretKey>
     template <ByteLike T, std::size_t N = std::dynamic_extent>
         requires(!std::same_as<std::remove_cv_t<T>, std::byte>)
     [[nodiscard]]
-    std::unique_ptr<Proof> get_vrf_proof(std::span<const T, N> in) const
+    std::unique_ptr<Proof> get_vrf_proof(std::span<const T, N> in)
     {
         return get_vrf_proof(std::as_bytes(in));
     }
 
-    template <ByteRange R> std::unique_ptr<Proof> get_vrf_proof(R &&in) const
+    /** 
+     * Generates a VRF proof for the given input data using this secret key.
+     */
+    template <ByteRange R>
+    [[nodiscard]]
+    std::unique_ptr<Proof> get_vrf_proof(R &&in)
     {
         return get_vrf_proof(byte_range_to_span(in));
     }
@@ -160,12 +213,17 @@ class SecretKey : public VRFObject<SecretKey>, public Clonable<SecretKey>
     /**
      * Returns the public key corresponding to this secret key.
      */
-    [[nodiscard]] virtual std::unique_ptr<PublicKey> get_public_key() const = 0;
+    [[nodiscard]]
+    virtual std::unique_ptr<PublicKey> get_public_key() = 0;
 
   protected:
     using VRFObject<SecretKey>::VRFObject;
 };
 
+/**
+ * Abstract base class representing a VRF public key object. The public key can be used to
+ * verify VRF proofs for given inputs. The public key can be cloned and serialized/deserialized.
+ */
 class PublicKey : public VRFObject<PublicKey>, public Clonable<PublicKey>, public Serializable
 {
   public:
@@ -178,8 +236,9 @@ class PublicKey : public VRFObject<PublicKey>, public Clonable<PublicKey>, publi
      * the function returns a pair where the first element is false and the second element
      * is an empty vector.
      */
-    [[nodiscard]] virtual std::pair<bool, std::vector<std::byte>> verify_vrf_proof(
-        std::span<const std::byte> in, const std::unique_ptr<Proof> &proof) const = 0;
+    [[nodiscard]]
+    virtual std::pair<bool, std::vector<std::byte>> verify_vrf_proof(std::span<const std::byte> in,
+                                                                     const std::unique_ptr<Proof> &proof) = 0;
 
     /**
      * Verifies the given VRF proof against the provided input data using this public key.
@@ -192,13 +251,21 @@ class PublicKey : public VRFObject<PublicKey>, public Clonable<PublicKey>, publi
         requires(!std::same_as<std::remove_cv_t<T>, std::byte>)
     [[nodiscard]]
     std::pair<bool, std::vector<std::byte>> verify_vrf_proof(std::span<const T, N> in,
-                                                             const std::unique_ptr<Proof> &proof) const
+                                                             const std::unique_ptr<Proof> &proof)
     {
         return verify_vrf_proof(std::as_bytes(in), proof);
     }
 
+    /**
+     * Verifies the given VRF proof against the provided input data using this public key.
+     * If the proof is valid, the function returns a pair where the first element is true
+     * and the second element is the VRF value as a vector of bytes. If the proof is invalid,
+     * the function returns a pair where the first element is false and the second element
+     * is an empty vector.
+     */
     template <ByteRange R>
-    std::pair<bool, std::vector<std::byte>> verify_vrf_proof(R &&in, const std::unique_ptr<Proof> &proof) const
+    [[nodiscard]]
+    std::pair<bool, std::vector<std::byte>> verify_vrf_proof(R &&in, const std::unique_ptr<Proof> &proof)
     {
         return verify_vrf_proof(byte_range_to_span(in), proof);
     }

@@ -1,8 +1,11 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include "vrf/rsa/rsavrf.h"
 #include "vrf/common.h"
+#include "vrf/guards.h"
 #include "vrf/log.h"
 #include "vrf/rsa/params.h"
-#include "vrf/type.h"
 #include <algorithm>
 #include <cstdint>
 #include <limits>
@@ -13,7 +16,7 @@
 #include <openssl/params.h>
 #include <openssl/rsa.h>
 
-namespace vrf::rsavrf
+namespace vrf::rsa
 {
 
 namespace
@@ -44,7 +47,7 @@ template <RSAGuard T> bool check_bytes_in_modulus_range(std::span<const std::byt
     }
 
     const RSAVRFParams params = get_rsavrf_params(guard.get_type());
-    std::size_t n_len = (params.bits + 7) / 8;
+    const std::size_t n_len = (params.bits + 7) / 8;
     if (n_len != test.size())
     {
         Logger()->error("Input to check_bytes_in_modulus_range has incorrect size: expected {} bytes, got {}", n_len,
@@ -52,98 +55,23 @@ template <RSAGuard T> bool check_bytes_in_modulus_range(std::span<const std::byt
         return false;
     }
 
-    BIGNUM *n = nullptr;
-    EVP_PKEY *pkey = guard.get();
-    if (1 != EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &n))
+    BIGNUM_Guard n{};
+    const EVP_PKEY *pkey = guard.get();
+    if (1 != EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, n.free_and_get_addr(true)))
     {
         Logger()->error("Failed to retrieve RSA modulus from EVP_PKEY for range check.");
-        BN_free(n);
         return false;
     }
 
-    BIGNUM *bn_test =
-        BN_bin2bn(reinterpret_cast<const unsigned char *>(test.data()), static_cast<int>(test.size()), nullptr);
-    if (nullptr == bn_test)
+    const BIGNUM_Guard bn_test = bytes_to_int_big_endian(test, false /* secure */);
+    if (!bn_test.has_value())
     {
         Logger()->error("Failed to convert test input to BIGNUM for range check.");
-        BN_free(n);
         return false;
     }
 
     // Test condition: 0 <= bn_test < n
-    bool ret = !BN_is_negative(bn_test) && BN_ucmp(n, bn_test) > 0;
-
-    BN_free(n);
-    BN_free(bn_test);
-
-    return ret;
-}
-
-/**
- * Computes a raw RSA signature on the provided data using the given RSA secret key.
- * The data to be signed must be the same length as the RSA modulus and must represent
- * a non-negative integer less than the modulus.
- *
- * Logs an error (and returns an empty vector) if any of the following conditions are met:
- *   - `tbs` or `sk_guard` are out of range or invalid.
- *   - Any of the OpenSSL signature operations failed.
- */
-std::vector<std::byte> rsa_signing_primitive(std::span<const std::byte> tbs, const RSA_SK_Guard &sk_guard)
-{
-    if (!check_bytes_in_modulus_range(tbs, sk_guard))
-    {
-        Logger()->warn("Inputs to rsa_signing_primitive are out of range or invalid.");
-        return {};
-    }
-
-    const RSAVRFParams params = get_rsavrf_params(sk_guard.get_type());
-    if (RSA_NO_PADDING != params.pad_mode)
-    {
-        Logger()->error("rsa_signing_primitive called with non-raw RSA VRF type: {}",
-                        vrf::type_to_string(sk_guard.get_type()));
-        return {};
-    }
-
-    // Create the signing context for raw RSA (no padding).
-    EVP_PKEY *pkey = sk_guard.get();
-    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_pkey(common::get_libctx(), pkey, common::get_propquery());
-    if (1 != EVP_PKEY_sign_init(pctx))
-    {
-        Logger()->error("Failed to initialize signing context for raw RSA; EVP_PKEY_sign_init failed.");
-        EVP_PKEY_CTX_free(pctx);
-        return {};
-    }
-
-    if (0 >= EVP_PKEY_CTX_set_rsa_padding(pctx, params.pad_mode))
-    {
-        Logger()->error("Failed to configure RSA (no padding) for signing.");
-        return {};
-    }
-
-    // Determine the length of the required signature buffer.
-    std::size_t siglen = 0;
-    if (0 >= EVP_PKEY_sign(pctx, nullptr, &siglen, reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size()))
-    {
-        Logger()->error("Failed to generate raw RSA signature; EVP_PKEY_sign failed.");
-        EVP_PKEY_CTX_free(pctx);
-        return {};
-    }
-
-    // Actually sign.
-    std::vector<std::byte> signature(siglen);
-    if (0 >= EVP_PKEY_sign(pctx, reinterpret_cast<unsigned char *>(signature.data()), &siglen,
-                           reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size()))
-    {
-        Logger()->error("Failed to generate raw RSA signature; EVP_PKEY_sign failed.");
-        EVP_PKEY_CTX_free(pctx);
-        return {};
-    }
-
-    EVP_PKEY_CTX_free(pctx);
-
-    // Resize the signature to the actual size.
-    signature.resize(siglen);
-    return signature;
+    return !BN_is_negative(bn_test.get()) && BN_ucmp(n.get(), bn_test.get()) > 0;
 }
 
 /**
@@ -155,7 +83,7 @@ std::vector<std::byte> rsa_signing_primitive(std::span<const std::byte> tbs, con
  *   - `signature` or `pk_guard` are out of range or invalid.
  *   - Any of the OpenSSL verification operations failed.
  */
-std::vector<std::byte> rsa_verification_primitive(std::span<const std::byte> signature, const RSA_PK_Guard &pk_guard)
+std::vector<std::byte> rsa_verification_primitive(std::span<const std::byte> signature, RSA_PK_Guard &pk_guard)
 {
     if (!check_bytes_in_modulus_range(signature, pk_guard))
     {
@@ -167,48 +95,178 @@ std::vector<std::byte> rsa_verification_primitive(std::span<const std::byte> sig
     if (RSA_NO_PADDING != params.pad_mode)
     {
         Logger()->error("rsa_verification_primitive called with non-raw RSA VRF type: {}",
-                        vrf::type_to_string(pk_guard.get_type()));
+                        type_to_string(pk_guard.get_type()));
         return {};
     }
 
     EVP_PKEY *pkey = pk_guard.get();
-    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_pkey(common::get_libctx(), pkey, common::get_propquery());
-    if (nullptr == pctx)
+    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_pkey(get_libctx(), pkey, get_propquery())};
+    if (!pctx.has_value())
     {
         Logger()->error("Failed to create EVP_PKEY_CTX for RSA verification primitive.");
         return {};
     }
 
-    if (0 >= EVP_PKEY_encrypt_init(pctx) || 0 >= EVP_PKEY_CTX_set_rsa_padding(pctx, params.pad_mode))
+    if (0 >= EVP_PKEY_encrypt_init(pctx.get()) || 0 >= EVP_PKEY_CTX_set_rsa_padding(pctx.get(), params.pad_mode))
     {
         Logger()->error("Failed to initialize RSA verification primitive; EVP_PKEY_encrypt_init failed.");
-        EVP_PKEY_CTX_free(pctx);
         return {};
     }
 
     std::size_t m_len = 0;
-    if (0 >= EVP_PKEY_encrypt(pctx, nullptr, &m_len, reinterpret_cast<const unsigned char *>(signature.data()),
+    if (0 >= EVP_PKEY_encrypt(pctx.get(), nullptr, &m_len, reinterpret_cast<const unsigned char *>(signature.data()),
                               signature.size()))
     {
         Logger()->error("Failed to determine output length for RSA verification primitive.");
-        EVP_PKEY_CTX_free(pctx);
         return {};
     }
 
     std::vector<std::byte> message(m_len);
-    if (0 >= EVP_PKEY_encrypt(pctx, reinterpret_cast<unsigned char *>(message.data()), &m_len,
+    if (0 >= EVP_PKEY_encrypt(pctx.get(), reinterpret_cast<unsigned char *>(message.data()), &m_len,
                               reinterpret_cast<const unsigned char *>(signature.data()), signature.size()))
     {
         Logger()->error("Failed to perform RSA verification primitive; EVP_PKEY_encrypt failed.");
-        EVP_PKEY_CTX_free(pctx);
         return {};
     }
-
-    EVP_PKEY_CTX_free(pctx);
 
     // Resize the message to the actual size.
     message.resize(m_len);
     return message;
+}
+
+/**
+ * Computes a raw RSA signature on the provided data using the given RSA secret key.
+ * The data to be signed must be the same length as the RSA modulus and must represent
+ * a non-negative integer less than the modulus.
+ *
+ * Logs an error (and returns an empty vector) if any of the following conditions are met:
+ *   - `tbs` or `sk_guard` are out of range or invalid.
+ *   - Any of the OpenSSL signature operations failed.
+ */
+std::vector<std::byte> rsa_signing_primitive(std::span<const std::byte> tbs, RSA_SK_Guard &sk_guard,
+                                             RSA_PK_Guard &pk_guard)
+{
+    if (!check_bytes_in_modulus_range(tbs, sk_guard))
+    {
+        Logger()->warn("Inputs to rsa_signing_primitive are out of range or invalid.");
+        return {};
+    }
+
+    const RSAVRFParams params = get_rsavrf_params(sk_guard.get_type());
+    if (RSA_NO_PADDING != params.pad_mode)
+    {
+        Logger()->error("rsa_signing_primitive called with non-raw RSA VRF type: {}",
+                        type_to_string(sk_guard.get_type()));
+        return {};
+    }
+
+    // Create the signing context for raw RSA (no padding).
+    EVP_PKEY *pkey = sk_guard.get();
+    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_pkey(get_libctx(), pkey, get_propquery())};
+    if (1 != EVP_PKEY_sign_init(pctx.get()))
+    {
+        Logger()->error("Failed to initialize signing context for raw RSA; EVP_PKEY_sign_init failed.");
+        return {};
+    }
+
+    if (0 >= EVP_PKEY_CTX_set_rsa_padding(pctx.get(), params.pad_mode))
+    {
+        Logger()->error("Failed to configure RSA (no padding) for signing.");
+        return {};
+    }
+
+    // Determine the length of the required signature buffer.
+    std::size_t siglen = 0;
+    if (0 >=
+        EVP_PKEY_sign(pctx.get(), nullptr, &siglen, reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size()))
+    {
+        Logger()->error("Failed to generate raw RSA signature; EVP_PKEY_sign failed.");
+        return {};
+    }
+
+    // Actually sign.
+    std::vector<std::byte> signature(siglen);
+    if (0 >= EVP_PKEY_sign(pctx.get(), reinterpret_cast<unsigned char *>(signature.data()), &siglen,
+                           reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size()))
+    {
+        Logger()->error("Failed to generate raw RSA signature; EVP_PKEY_sign failed.");
+        return {};
+    }
+
+    // Resize the signature to the actual size.
+    signature.resize(siglen);
+
+    // Verify that the signature was computed correctly. This is standard practice for RSA signatures.
+    const std::vector<std::byte> verified_message = rsa_verification_primitive(signature, pk_guard);
+    if (!std::equal(verified_message.begin(), verified_message.end(), tbs.begin(), tbs.end()))
+    {
+        Logger()->error("rsa_signing_primitive produced an invalid signature.");
+        return {};
+    }
+
+    return signature;
+}
+
+/**
+ * Performs RSA-PSS verification with zero-length salt on the provided signature and data using
+ * the given RSA public key. The data to be verified can be of any length.
+ *
+ * Logs an error (and returns false) if any of the following conditions are met:
+ *   - `signature`, `tbs`, or `pk_guard` are out of range or invalid.
+ *   - The VRF type in `pk_guard` is not an RSA-PSS type.
+ *   - Any of the OpenSSL operations failed.
+ */
+bool rsa_pss_nosalt_verify(std::span<const std::byte> signature, std::span<const std::byte> tbs, RSA_PK_Guard &pk_guard)
+{
+    if (!check_bytes_in_modulus_range(signature, pk_guard))
+    {
+        Logger()->warn("Inputs to rsa_pss_nosalt_verify are out of range or invalid.");
+        return false;
+    }
+    if (tbs.empty())
+    {
+        Logger()->error("rsa_pss_nosalt_sign called with empty data to sign.");
+        return {};
+    }
+
+    const Type type = pk_guard.get_type();
+    const RSAVRFParams params = get_rsavrf_params(type);
+    if (RSA_PKCS1_PSS_PADDING != params.pad_mode)
+    {
+        Logger()->error("rsa_pss_nosalt_verify called with non-PSS RSA VRF type: {}", type_to_string(type));
+        return {};
+    }
+
+    MD_CTX_Guard mctx{true /* oneshot only */};
+    if (!mctx.has_value())
+    {
+        Logger()->error("Failed to get EVP_MD_CTX.");
+        return false;
+    }
+
+    // Create the verification context.
+    EVP_PKEY *pkey = pk_guard.get();
+    EVP_PKEY_CTX *pctx = nullptr;
+    if (1 != EVP_DigestVerifyInit_ex(mctx.get(), &pctx, params.digest, get_libctx(), get_propquery(), pkey, nullptr))
+    {
+        Logger()->error("Failed to initialize verification context for RSA-PSS; EVP_DigestVerifyInit_ex failed.");
+        return false;
+    }
+
+    // Configure the PSS padding. We set the salt length to 0. This is necessary for the VRF
+    // since we need the signature to be deterministic (but unpredictable).
+    if (0 >= EVP_PKEY_CTX_set_rsa_padding(pctx, params.pad_mode) || 0 >= EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, 0))
+    {
+        Logger()->error("Failed to configure RSA-PSS padding for verification.");
+        return false;
+    }
+
+    // We don't need to call EVP_PKEY_CTX_set_rsa_mgf1_md because it defaults to the same digest
+    // as the signature digest.
+
+    // One-shot digest-verify.
+    return EVP_DigestVerify(mctx.get(), reinterpret_cast<const unsigned char *>(signature.data()),
+                                    signature.size(), reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size());
 }
 
 /**
@@ -220,7 +278,8 @@ std::vector<std::byte> rsa_verification_primitive(std::span<const std::byte> sig
  *   - The VRF type in `sk_guard` is not an RSA-PSS type.
  *   - Any of the OpenSSL operations failed.
  */
-std::vector<std::byte> rsa_pss_nosalt_sign(std::span<const std::byte> tbs, const RSA_SK_Guard &sk_guard)
+std::vector<std::byte> rsa_pss_nosalt_sign(std::span<const std::byte> tbs, RSA_SK_Guard &sk_guard,
+                                           RSA_PK_Guard &pk_guard)
 {
     if (!sk_guard.has_value())
     {
@@ -233,15 +292,15 @@ std::vector<std::byte> rsa_pss_nosalt_sign(std::span<const std::byte> tbs, const
         return {};
     }
 
-    vrf::Type type = sk_guard.get_type();
+    const Type type = sk_guard.get_type();
     const RSAVRFParams params = get_rsavrf_params(type);
     if (RSA_PKCS1_PSS_PADDING != params.pad_mode)
     {
-        Logger()->error("rsa_pss_nosalt_sign called with non-PSS RSA VRF type: {}", vrf::type_to_string(type));
+        Logger()->error("rsa_pss_nosalt_sign called with non-PSS RSA VRF type: {}", type_to_string(type));
         return {};
     }
 
-    common::MD_CTX_Guard mctx{true /* oneshot only */};
+    MD_CTX_Guard mctx{true /* oneshot only */};
     if (!mctx.has_value())
     {
         Logger()->error("Failed to get EVP_MD_CTX.");
@@ -251,8 +310,7 @@ std::vector<std::byte> rsa_pss_nosalt_sign(std::span<const std::byte> tbs, const
     // Create the signing context. Note that `pctx` does *not* need to be freed manually, as mctx will own it.
     EVP_PKEY *pkey = sk_guard.get();
     EVP_PKEY_CTX *pctx = nullptr;
-    if (1 != EVP_DigestSignInit_ex(mctx.get(), &pctx, params.digest, common::get_libctx(), common::get_propquery(),
-                                   pkey, nullptr))
+    if (1 != EVP_DigestSignInit_ex(mctx.get(), &pctx, params.digest, get_libctx(), get_propquery(), pkey, nullptr))
     {
         Logger()->error("Failed to initialize signing context for RSA-PSS; EVP_DigestSignInit_ex failed.");
         return {};
@@ -288,72 +346,15 @@ std::vector<std::byte> rsa_pss_nosalt_sign(std::span<const std::byte> tbs, const
 
     // Resize the signature to the actual size.
     signature.resize(siglen);
+
+    // Verify that the signature was computed correctly. This is standard practice for RSA signatures.
+    if (!rsa_pss_nosalt_verify(signature, tbs, pk_guard))
+    {
+        Logger()->error("rsa_pss_nosalt_sign produced an invalid signature.");
+        return {};
+    }
+
     return signature;
-}
-
-/**
- * Performs RSA-PSS verification with zero-length salt on the provided signature and data using
- * the given RSA public key. The data to be verified can be of any length.
- *
- * Logs an error (and returns false) if any of the following conditions are met:
- *   - `signature`, `tbs`, or `pk_guard` are out of range or invalid.
- *   - The VRF type in `pk_guard` is not an RSA-PSS type.
- *   - Any of the OpenSSL operations failed.
- */
-bool rsa_pss_nosalt_verify(std::span<const std::byte> signature, std::span<const std::byte> tbs,
-                           const RSA_PK_Guard &pk_guard)
-{
-    if (!check_bytes_in_modulus_range(signature, pk_guard))
-    {
-        Logger()->warn("Inputs to rsa_pss_nosalt_verify are out of range or invalid.");
-        return false;
-    }
-    if (tbs.empty())
-    {
-        Logger()->error("rsa_pss_nosalt_sign called with empty data to sign.");
-        return {};
-    }
-
-    vrf::Type type = pk_guard.get_type();
-    const RSAVRFParams params = get_rsavrf_params(type);
-    if (RSA_PKCS1_PSS_PADDING != params.pad_mode)
-    {
-        Logger()->error("rsa_pss_nosalt_verify called with non-PSS RSA VRF type: {}", vrf::type_to_string(type));
-        return {};
-    }
-
-    common::MD_CTX_Guard mctx{true /* oneshot only */};
-    if (!mctx.has_value())
-    {
-        Logger()->error("Failed to get EVP_MD_CTX.");
-        return false;
-    }
-
-    // Create the verification context.
-    EVP_PKEY *pkey = pk_guard.get();
-    EVP_PKEY_CTX *pctx = nullptr;
-    if (1 != EVP_DigestVerifyInit_ex(mctx.get(), &pctx, params.digest, common::get_libctx(), common::get_propquery(),
-                                     pkey, nullptr))
-    {
-        Logger()->error("Failed to initialize verification context for RSA-PSS; EVP_DigestVerifyInit_ex failed.");
-        return false;
-    }
-
-    // Configure the PSS padding. We set the salt length to 0. This is necessary for the VRF
-    // since we need the signature to be deterministic (but unpredictable).
-    if (0 >= EVP_PKEY_CTX_set_rsa_padding(pctx, params.pad_mode) || 0 >= EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, 0))
-    {
-        Logger()->error("Failed to configure RSA-PSS padding for verification.");
-        return false;
-    }
-
-    // We don't need to call EVP_PKEY_CTX_set_rsa_mgf1_md because it defaults to the same digest
-    // as the signature digest.
-
-    // One-shot digest-verify.
-    bool success = EVP_DigestVerify(mctx.get(), reinterpret_cast<const unsigned char *>(signature.data()),
-                                    signature.size(), reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size());
-    return success;
 }
 
 bool mgf1(std::span<std::byte> mask, std::span<const std::byte> seed, const EVP_MD *dgst)
@@ -375,22 +376,22 @@ bool mgf1(std::span<std::byte> mask, std::span<const std::byte> seed, const EVP_
     std::size_t outlen = 0;
 
     std::array<std::byte, 4> ctr{};
-    std::array<std::byte, EVP_MAX_MD_SIZE> md;
+    std::array<std::byte, EVP_MAX_MD_SIZE> md{};
 
-    common::MD_CTX_Guard mctx{false /* oneshot only */};
+    MD_CTX_Guard mctx{false /* oneshot only */};
     if (!mctx.has_value())
     {
         Logger()->error("Failed to get EVP_MD_CTX for MGF1.");
         return false;
     }
 
-    int mdlen = EVP_MD_get_size(dgst);
+    const int mdlen = EVP_MD_get_size(dgst);
     if (mdlen <= 0)
     {
         Logger()->error("Invalid digest size for MGF1.");
         return false;
     }
-    std::size_t mdlen_sz = static_cast<std::size_t>(mdlen);
+    const std::size_t mdlen_sz = static_cast<std::size_t>(mdlen);
 
     for (std::uint32_t i = 0; outlen < len; i++)
     {
@@ -436,22 +437,22 @@ bool mgf1(std::span<std::byte> mask, std::span<const std::byte> seed, const EVP_
     return true;
 }
 
-std::vector<std::byte> construct_rsa_fdh_tbs(vrf::Type type, std::span<const std::byte> mgf1_salt,
+std::vector<std::byte> construct_rsa_fdh_tbs(Type type, std::span<const std::byte> mgf1_salt,
                                              std::span<const std::byte> data)
 {
     // We need to evaluate the MGF1 function on suite_string || 0x01 || mgf1_salt || data.
     // The output must have length k-1, where k is the length in bytes of the RSA modulus.
 
-    if (!vrf::is_rsa_type(type))
+    if (!is_rsa_type(type))
     {
-        Logger()->warn("construct_rsa_fdh_tbs called with non-RSA VRF type: {}", vrf::type_to_string(type));
+        Logger()->warn("construct_rsa_fdh_tbs called with non-RSA VRF type: {}", type_to_string(type));
         return {};
     }
 
     const RSAVRFParams params = get_rsavrf_params(type);
     if (RSA_NO_PADDING != params.pad_mode)
     {
-        Logger()->error("construct_rsa_fdh_tbs called with non-FDH RSA VRF type: {}", vrf::type_to_string(type));
+        Logger()->error("construct_rsa_fdh_tbs called with non-FDH RSA VRF type: {}", type_to_string(type));
         return {};
     }
 
@@ -459,7 +460,7 @@ std::vector<std::byte> construct_rsa_fdh_tbs(vrf::Type type, std::span<const std
     const std::size_t n_len = (params.bits + 7) / 8;
 
     // Set up the seed to MGF1.
-    std::vector<std::byte> tbs;
+    std::vector<std::byte> tbs{};
     tbs.reserve(suite_string_len + 1 /* domain separator */ + mgf1_salt.size() + data.size());
     std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, std::back_inserter(tbs));
     tbs.push_back(std::byte{0x01});
@@ -468,10 +469,10 @@ std::vector<std::byte> construct_rsa_fdh_tbs(vrf::Type type, std::span<const std
 
     // Evaluate MGF1. The output *must* have size `n_len` bytes. Otherwise, raw RSA signing will fail.
     std::vector<std::byte> ret(n_len);
-    const EVP_MD *md = EVP_MD_fetch(common::get_libctx(), params.digest, common::get_propquery());
+    const EVP_MD *md = EVP_MD_fetch(get_libctx(), params.digest, get_propquery());
     if (nullptr == md)
     {
-        Logger()->error("Failed to get EVP_MD for VRF type: {}", vrf::type_to_string(type));
+        Logger()->error("Failed to get EVP_MD for VRF type: {}", type_to_string(type));
         return {};
     }
     if (!mgf1(ret, tbs, md))
@@ -483,25 +484,25 @@ std::vector<std::byte> construct_rsa_fdh_tbs(vrf::Type type, std::span<const std
     return ret;
 }
 
-std::vector<std::byte> construct_rsa_pss_tbs(vrf::Type type, std::span<const std::byte> mgf1_salt,
+std::vector<std::byte> construct_rsa_pss_tbs(Type type, std::span<const std::byte> mgf1_salt,
                                              std::span<const std::byte> data)
 {
-    if (!vrf::is_rsa_type(type))
+    if (!is_rsa_type(type))
     {
-        Logger()->error("construct_rsa_pss_tbs called with non-RSA VRF type: {}", vrf::type_to_string(type));
+        Logger()->error("construct_rsa_pss_tbs called with non-RSA VRF type: {}", type_to_string(type));
         return {};
     }
 
     const RSAVRFParams params = get_rsavrf_params(type);
     if (RSA_PKCS1_PSS_PADDING != params.pad_mode)
     {
-        Logger()->error("construct_rsa_pss_tbs called with non-PSS RSA VRF type: {}", vrf::type_to_string(type));
+        Logger()->error("construct_rsa_pss_tbs called with non-PSS RSA VRF type: {}", type_to_string(type));
         return {};
     }
 
     const std::size_t suite_string_len = params.suite_string_len;
 
-    std::vector<std::byte> tbs;
+    std::vector<std::byte> tbs{};
     tbs.reserve(suite_string_len + 1 /* domain separator */ + mgf1_salt.size() + data.size());
 
     std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, std::back_inserter(tbs));
@@ -514,13 +515,12 @@ std::vector<std::byte> construct_rsa_pss_tbs(vrf::Type type, std::span<const std
 
 } // namespace
 
-void RSAProof::from_bytes(vrf::Type type, std::span<const std::byte> data)
+void RSAProof::from_bytes(Type type, std::span<const std::byte> data)
 {
-    RSAProof rsa_proof(type, std::vector<std::byte>(data.begin(), data.end()));
+    RSAProof rsa_proof{type, std::vector<std::byte>(data.begin(), data.end())};
     if (!rsa_proof.is_initialized())
     {
-        Logger()->warn("RSAProof::from_bytes called with invalid proof data for VRF type: {}",
-                       vrf::type_to_string(type));
+        Logger()->warn("RSAProof::from_bytes called with invalid proof data for VRF type: {}", type_to_string(type));
         return;
     }
 
@@ -529,7 +529,13 @@ void RSAProof::from_bytes(vrf::Type type, std::span<const std::byte> data)
 
 RSAProof::RSAProof(const RSAProof &source)
 {
-    RSAProof proof_copy(source.get_type(), source.proof_);
+    RSAProof proof_copy{source.get_type(), source.proof_};
+    if (!proof_copy.is_initialized())
+    {
+        Logger()->error("RSAProof copy constructor failed to initialize the copied proof.");
+        return;
+    }
+
     *this = std::move(proof_copy);
 }
 
@@ -537,16 +543,14 @@ RSAProof &RSAProof::operator=(RSAProof &&rhs) noexcept
 {
     if (this != &rhs)
     {
+        const Type type = get_type();
         set_type(rhs.get_type());
-        proof_ = std::move(rhs.proof_);
-        rhs.set_type(vrf::Type::UNKNOWN_VRF_TYPE);
+        rhs.set_type(type);
+
+        using std::swap;
+        swap(proof_, rhs.proof_);
     }
     return *this;
-}
-
-bool RSAProof::is_initialized() const
-{
-    return !proof_.empty() && is_rsa_type(get_type());
 }
 
 std::vector<std::byte> RSAProof::get_vrf_value() const
@@ -557,22 +561,22 @@ std::vector<std::byte> RSAProof::get_vrf_value() const
         return {};
     }
 
-    const vrf::Type type = get_type();
+    const Type type = get_type();
     const RSAVRFParams params = get_rsavrf_params(type);
 
     const std::size_t suite_string_len = params.suite_string_len;
 
-    std::vector<std::byte> tbh;
+    std::vector<std::byte> tbh{};
     tbh.reserve(suite_string_len + 1 /* domain separator */ + proof_.size());
 
     std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, std::back_inserter(tbh));
     tbh.push_back(std::byte{0x02});
     std::copy(proof_.begin(), proof_.end(), std::back_inserter(tbh));
 
-    return common::compute_hash(params.digest, tbh);
+    return compute_hash(params.digest, tbh);
 }
 
-std::unique_ptr<vrf::Proof> RSASecretKey::get_vrf_proof(std::span<const std::byte> in) const
+std::unique_ptr<Proof> RSASecretKey::get_vrf_proof(std::span<const std::byte> in)
 {
     if (!is_initialized())
     {
@@ -580,34 +584,39 @@ std::unique_ptr<vrf::Proof> RSASecretKey::get_vrf_proof(std::span<const std::byt
         return nullptr;
     }
 
-    const vrf::Type type = get_type();
+    const Type type = get_type();
     const RSAVRFParams params = get_rsavrf_params(type);
+    if (nullptr == params.algorithm_name)
+    {
+        Logger()->warn("RSASecretKey::get_vrf_proof called with non-RSA VRF type: {}", type_to_string(type));
+        return nullptr;
+    }
 
-    std::unique_ptr<vrf::Proof> ret = nullptr;
+    std::unique_ptr<Proof> ret = nullptr;
     switch (params.pad_mode)
     {
     case RSA_NO_PADDING: {
         const std::vector<std::byte> tbs = construct_rsa_fdh_tbs(type, mgf1_salt_, in);
-        std::vector<std::byte> signature = rsa_signing_primitive(tbs, sk_guard_);
+        std::vector<std::byte> signature = rsa_signing_primitive(tbs, sk_guard_, pk_guard_);
         if (signature.empty())
         {
             Logger()->error("RSASecretKey::get_vrf_proof failed to generate raw RSA signature.");
             return nullptr;
         }
 
-        ret.reset(new RSAProof(type, std::move(signature)));
+        ret.reset(new RSAProof{type, std::move(signature)});
         break;
     }
     case RSA_PKCS1_PSS_PADDING: {
         const std::vector<std::byte> tbs = construct_rsa_pss_tbs(type, mgf1_salt_, in);
-        std::vector<std::byte> signature = rsa_pss_nosalt_sign(tbs, sk_guard_);
+        std::vector<std::byte> signature = rsa_pss_nosalt_sign(tbs, sk_guard_, pk_guard_);
         if (signature.empty())
         {
             Logger()->error("RSASecretKey::get_vrf_proof failed to generate RSA-PSS signature.");
             return nullptr;
         }
 
-        ret.reset(new RSAProof(type, std::move(signature)));
+        ret.reset(new RSAProof{type, std::move(signature)});
         break;
     }
     default:
@@ -618,13 +627,19 @@ std::unique_ptr<vrf::Proof> RSASecretKey::get_vrf_proof(std::span<const std::byt
     return ret;
 }
 
-RSASecretKey::RSASecretKey(vrf::Type type) : vrf::SecretKey{vrf::Type::UNKNOWN_VRF_TYPE}, sk_guard_{}, mgf1_salt_{}
+RSASecretKey::RSASecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_guard_{}, mgf1_salt_{}
 {
-    RSA_SK_Guard sk_guard(type);
+    RSA_SK_Guard sk_guard{type};
     if (!sk_guard.has_value())
     {
-        Logger()->warn("RSASecretKey constructor failed to generate RSA key for VRF type: {}",
-                       vrf::type_to_string(type));
+        Logger()->warn("RSASecretKey constructor failed to generate RSA key for VRF type: {}", type_to_string(type));
+        return;
+    }
+
+    RSA_PK_Guard pk_guard{sk_guard};
+    if (!pk_guard.has_value())
+    {
+        Logger()->error("RSASecretKey constructor failed to create RSA public key from secret key.");
         return;
     }
 
@@ -636,6 +651,7 @@ RSASecretKey::RSASecretKey(vrf::Type type) : vrf::SecretKey{vrf::Type::UNKNOWN_V
     }
 
     sk_guard_ = std::move(sk_guard);
+    pk_guard_ = std::move(pk_guard);
     mgf1_salt_ = std::move(mgf1_salt);
     set_type(type);
 }
@@ -644,51 +660,76 @@ RSASecretKey &RSASecretKey::operator=(RSASecretKey &&rhs) noexcept
 {
     if (this != &rhs)
     {
+        const Type type = get_type();
         set_type(rhs.get_type());
-        sk_guard_ = std::move(rhs.sk_guard_);
-        mgf1_salt_ = std::move(rhs.mgf1_salt_);
+        rhs.set_type(type);
 
-        rhs.set_type(vrf::Type::UNKNOWN_VRF_TYPE);
-        rhs.sk_guard_.reset();
-        rhs.mgf1_salt_.clear();
+        using std::swap;
+        swap(sk_guard_, rhs.sk_guard_);
+        swap(pk_guard_, rhs.pk_guard_);
+        swap(mgf1_salt_, rhs.mgf1_salt_);
     }
     return *this;
 }
 
-RSASecretKey::RSASecretKey(const RSASecretKey &source) : sk_guard_{}, mgf1_salt_{}
+RSASecretKey::RSASecretKey(const RSASecretKey &source) : sk_guard_{}, pk_guard_{}, mgf1_salt_{}
 {
-    RSA_SK_Guard sk_guard_copy = source.sk_guard_.clone();
-    if (sk_guard_copy.has_value() != source.sk_guard_.has_value())
+    if (!source.is_initialized())
     {
-        // Log an error if the cloning failed.
+        return;
+    }
+
+    RSA_SK_Guard sk_guard_copy = source.sk_guard_.clone();
+    if (!sk_guard_copy.has_value())
+    {
         Logger()->error("RSASecretKey copy constructor failed to clone the given secret key.");
         return;
     }
 
-    std::vector<std::byte> mgf1_salt_copy(source.mgf1_salt_);
+    RSA_PK_Guard pk_guard_copy = source.pk_guard_.clone();
+    if (!pk_guard_copy.has_value())
+    {
+        Logger()->error("RSASecretKey copy constructor failed to clone the given public key.");
+        return;
+    }
+
+    std::vector<std::byte> mgf1_salt_copy = source.mgf1_salt_;
 
     sk_guard_ = std::move(sk_guard_copy);
+    pk_guard_ = std::move(pk_guard_copy);
     mgf1_salt_ = std::move(mgf1_salt_copy);
     set_type(source.get_type());
 }
 
-bool RSASecretKey::is_initialized() const
+std::unique_ptr<PublicKey> RSASecretKey::get_public_key()
 {
-    return sk_guard_.has_value() && !mgf1_salt_.empty() && get_type() == sk_guard_.get_type();
+    if (!is_initialized())
+    {
+        Logger()->warn("RSASecretKey::get_public_key called on invalid RSASecretKey.");
+        return nullptr;
+    }
+
+    RSA_PK_Guard pk_guard = pk_guard_.clone();
+    std::unique_ptr<RSAPublicKey> public_key{new RSAPublicKey{get_type(), std::move(pk_guard)}};
+    if (nullptr == public_key || !public_key->is_initialized())
+    {
+        Logger()->error("RSASecretKey::get_public_key failed to create RSAPublicKey from RSA_PK_Guard.");
+        return nullptr;
+    }
+
+    return public_key;
 }
 
-RSAPublicKey::RSAPublicKey(const RSAPublicKey &source)
-    : vrf::PublicKey{vrf::Type::UNKNOWN_VRF_TYPE}, pk_guard_{}, mgf1_salt_{}
+RSAPublicKey::RSAPublicKey(const RSAPublicKey &source) : PublicKey{Type::UNKNOWN}, pk_guard_{}, mgf1_salt_{}
 {
     RSA_PK_Guard pk_guard_copy = source.pk_guard_.clone();
     if (pk_guard_copy.has_value() != source.pk_guard_.has_value())
     {
-        // Log an error if the cloning failed.
         Logger()->error("RSAPublicKey copy constructor failed to clone the given public key.");
         return;
     }
 
-    std::vector<std::byte> mgf1_salt_copy(source.mgf1_salt_);
+    std::vector<std::byte> mgf1_salt_copy = source.mgf1_salt_;
 
     pk_guard_ = std::move(pk_guard_copy);
     mgf1_salt_ = std::move(mgf1_salt_copy);
@@ -699,21 +740,21 @@ RSAPublicKey &RSAPublicKey::operator=(RSAPublicKey &&rhs) noexcept
 {
     if (this != &rhs)
     {
+        const Type type = get_type();
         set_type(rhs.get_type());
-        pk_guard_ = std::move(rhs.pk_guard_);
-        mgf1_salt_ = std::move(rhs.mgf1_salt_);
+        rhs.set_type(type);
 
-        rhs.set_type(vrf::Type::UNKNOWN_VRF_TYPE);
-        rhs.pk_guard_.reset();
-        rhs.mgf1_salt_.clear();
+        using std::swap;
+        swap(pk_guard_, rhs.pk_guard_);
+        swap(mgf1_salt_, rhs.mgf1_salt_);
     }
     return *this;
 }
 
-RSAPublicKey::RSAPublicKey(vrf::Type type, std::span<const std::byte> der_spki)
-    : vrf::PublicKey{vrf::Type::UNKNOWN_VRF_TYPE}, pk_guard_{}, mgf1_salt_{}
+RSAPublicKey::RSAPublicKey(Type type, std::span<const std::byte> der_spki)
+    : PublicKey{Type::UNKNOWN}, pk_guard_{}, mgf1_salt_{}
 {
-    RSA_PK_Guard pk_guard(type, der_spki);
+    RSA_PK_Guard pk_guard{type, der_spki};
     if (!pk_guard.has_value())
     {
         Logger()->warn("RSAPublicKey constructor failed to load EVP_PKEY from provided DER SPKI.");
@@ -732,12 +773,27 @@ RSAPublicKey::RSAPublicKey(vrf::Type type, std::span<const std::byte> der_spki)
     set_type(type);
 }
 
-bool RSAPublicKey::is_initialized() const
+RSAPublicKey::RSAPublicKey(Type type, RSA_PK_Guard pk_guard) : PublicKey{Type::UNKNOWN}, pk_guard_{}, mgf1_salt_{}
 {
-    return pk_guard_.has_value() && !mgf1_salt_.empty();
+    if (!pk_guard.has_value())
+    {
+        Logger()->warn("RSAPublicKey constructor called with invalid RSA_PK_Guard.");
+        return;
+    }
+
+    std::vector<std::byte> mgf1_salt = pk_guard.get_mgf1_salt();
+    if (mgf1_salt.empty())
+    {
+        Logger()->error("RSAPublicKey constructor failed to generate MGF1 salt from provided EVP_PKEY.");
+        return;
+    }
+
+    pk_guard_ = std::move(pk_guard);
+    mgf1_salt_ = std::move(mgf1_salt);
+    set_type(type);
 }
 
-std::vector<std::byte> RSAPublicKey::to_bytes() const
+std::vector<std::byte> RSAPublicKey::to_bytes()
 {
     if (!is_initialized())
     {
@@ -745,7 +801,7 @@ std::vector<std::byte> RSAPublicKey::to_bytes() const
         return {};
     }
 
-    std::vector<std::byte> der_spki = common::encode_public_key_to_der_spki(pk_guard_.get());
+    std::vector<std::byte> der_spki = encode_public_key_to_der_spki(pk_guard_.get());
     if (der_spki.empty())
     {
         Logger()->error("RSAPublicKey::to_bytes failed to encode EVP_PKEY to DER SPKI.");
@@ -754,41 +810,21 @@ std::vector<std::byte> RSAPublicKey::to_bytes() const
     return der_spki;
 }
 
-void RSAPublicKey::from_bytes(vrf::Type type, std::span<const std::byte> data)
+void RSAPublicKey::from_bytes(Type type, std::span<const std::byte> data)
 {
-    RSAPublicKey public_key(type, data);
+    RSAPublicKey public_key{type, data};
     if (!public_key.is_initialized())
     {
         Logger()->warn("RSAPublicKey::from_bytes called with invalid public key DER for VRF type: {}",
-                       vrf::type_to_string(type));
+                       type_to_string(type));
         return;
     }
 
     *this = std::move(public_key);
 }
 
-std::unique_ptr<vrf::PublicKey> RSASecretKey::get_public_key() const
-{
-    if (!is_initialized())
-    {
-        Logger()->warn("RSASecretKey::get_public_key called on invalid RSASecretKey.");
-        return nullptr;
-    }
-
-    // Serialize the public key first and then load back to a fresh EVP_PKEY.
-    const std::vector<std::byte> der_spki = common::encode_public_key_to_der_spki(sk_guard_.get());
-    std::unique_ptr<RSAPublicKey> public_key(new RSAPublicKey(get_type(), der_spki));
-    if (nullptr == public_key || !public_key->is_initialized())
-    {
-        Logger()->error("RSASecretKey::get_public_key failed to decode public key from DER SPKI");
-        return nullptr;
-    }
-
-    return public_key;
-}
-
 std::pair<bool, std::vector<std::byte>> RSAPublicKey::verify_vrf_proof(std::span<const std::byte> in,
-                                                                       const std::unique_ptr<vrf::Proof> &proof) const
+                                                                       const std::unique_ptr<Proof> &proof)
 {
     if (!is_initialized())
     {
@@ -804,7 +840,7 @@ std::pair<bool, std::vector<std::byte>> RSAPublicKey::verify_vrf_proof(std::span
         return {false, {}};
     }
 
-    const vrf::Type type = get_type();
+    const Type type = get_type();
     if (!rsa_proof->is_initialized() || rsa_proof->get_type() != type)
     {
         Logger()->warn("RSAPublicKey::verify_vrf_proof called with invalid or mismatched proof type.");
@@ -833,7 +869,7 @@ std::pair<bool, std::vector<std::byte>> RSAPublicKey::verify_vrf_proof(std::span
         break;
     }
     default:
-        Logger()->error("RSASecretKey::get_vrf_proof called with unsupported padding mode: {}", params.pad_mode);
+        Logger()->error("RSAPublicKey::verify_vrf_proof called with unsupported padding mode: {}", params.pad_mode);
         break;
     }
 
@@ -845,4 +881,4 @@ std::pair<bool, std::vector<std::byte>> RSAPublicKey::verify_vrf_proof(std::span
     return {true, rsa_proof->get_vrf_value()};
 }
 
-} // namespace vrf::rsavrf
+} // namespace vrf::rsa

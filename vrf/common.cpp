@@ -1,11 +1,12 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include "vrf/common.h"
 #include "vrf/log.h"
-#include <array>
-#include <cstdint>
 #include <openssl/decoder.h>
 #include <openssl/encoder.h>
 
-namespace vrf::common
+namespace vrf
 {
 
 OSSL_LIB_CTX *get_libctx()
@@ -21,6 +22,34 @@ const char *get_propquery()
     // Set a custom propquery here.
     static const char *propquery = nullptr;
     return propquery;
+}
+
+SecureBuf::SecureBuf(std::size_t size)
+{
+    std::byte *buf = static_cast<std::byte *>(OPENSSL_secure_malloc(size));
+    if (size > 0 && nullptr != buf)
+    {
+        buf_ = buf;
+        size_ = size;
+    }
+}
+
+SecureBuf &SecureBuf::operator=(SecureBuf &&rhs) noexcept
+{
+    if (this != &rhs)
+    {
+        using std::swap;
+        swap(size_, rhs.size_);
+        swap(buf_, rhs.buf_);
+    }
+    return *this;
+}
+
+SecureBuf::~SecureBuf()
+{
+    OPENSSL_secure_clear_free(buf_, size_);
+    size_ = 0;
+    buf_ = nullptr;
 }
 
 EVP_PKEY *decode_public_key_from_der_spki(const char *algorithm_name, std::span<const std::byte> der_spki)
@@ -54,7 +83,7 @@ EVP_PKEY *decode_public_key_from_der_spki(const char *algorithm_name, std::span<
     return pkey;
 }
 
-std::vector<std::byte> encode_public_key_to_der_spki(EVP_PKEY *pkey)
+std::vector<std::byte> encode_public_key_to_der_spki(const EVP_PKEY *pkey)
 {
     if (nullptr == pkey)
     {
@@ -100,45 +129,4 @@ EVP_PKEY *evp_pkey_upref(EVP_PKEY *pkey)
     return pkey;
 }
 
-MD_CTX_Guard::MD_CTX_Guard(bool oneshot_only)
-{
-    mctx_ = EVP_MD_CTX_new();
-    if (nullptr != mctx_)
-    {
-        std::uint32_t cond_oneshot =
-            (std::uint32_t{0} - static_cast<std::uint32_t>(oneshot_only)) & EVP_MD_CTX_FLAG_ONESHOT;
-        int flags = EVP_MD_CTX_FLAG_FINALISE | static_cast<int>(cond_oneshot);
-        EVP_MD_CTX_set_flags(mctx_, flags);
-    }
-}
-
-std::vector<std::byte> compute_hash(const char *md_name, std::span<const std::byte> tbh)
-{
-    // Get an EVP_MD for the specified VRF type.
-    const EVP_MD *md = EVP_MD_fetch(get_libctx(), md_name, get_propquery());
-    if (nullptr == md)
-    {
-        vrf::Logger()->error("Failed to get EVP_MD for digest: {}", md_name);
-        return {};
-    }
-
-    MD_CTX_Guard mctx = MD_CTX_Guard(true /* oneshot only */);
-    if (!mctx.has_value())
-    {
-        vrf::Logger()->error("Failed to get EVP_MD_CTX.");
-        return {};
-    }
-
-    std::array<std::byte, EVP_MAX_MD_SIZE> md_out;
-    unsigned md_outlen = 0;
-    if (1 != EVP_DigestInit(mctx.get(), md) || 1 != EVP_DigestUpdate(mctx.get(), tbh.data(), tbh.size()) ||
-        1 != EVP_DigestFinal_ex(mctx.get(), reinterpret_cast<unsigned char *>(md_out.data()), &md_outlen))
-    {
-        vrf::Logger()->error("Failed to compute digest; EVP_Digest* operations failed.");
-        return {};
-    }
-
-    return std::vector<std::byte>(md_out.begin(), md_out.begin() + md_outlen);
-}
-
-} // namespace vrf::common
+} // namespace vrf

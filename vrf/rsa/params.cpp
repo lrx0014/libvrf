@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include "vrf/rsa/params.h"
 #include <cstring>
 #include <openssl/rsa.h>
@@ -5,10 +8,10 @@
 #define RSAVRF_PARAMS(KEY_SIZE, DIGEST, PAD_MODE, SUITE_STRING)                                                        \
     "RSA", KEY_SIZE, 2, 65537, DIGEST, PAD_MODE, SUITE_STRING, std::strlen(SUITE_STRING)
 
-namespace vrf::rsavrf
+namespace vrf::rsa
 {
 
-RSAVRFParams get_rsavrf_params(Type type)
+RSAVRFParams get_rsavrf_params(Type type) noexcept
 {
     switch (type)
     {
@@ -35,4 +38,4 @@ RSAVRFParams get_rsavrf_params(Type type)
     }
 }
 
-} // namespace vrf::rsavrf
+} // namespace vrf::rsa

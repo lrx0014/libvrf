@@ -1,12 +1,17 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #pragma once
 
+#include "vrf/guards.h"
 #include "vrf/type.h"
 #include <concepts>
 #include <openssl/evp.h>
 #include <span>
+#include <utility>
 #include <vector>
 
-namespace vrf::rsavrf
+namespace vrf::rsa
 {
 
 class RSA_SK_Guard
@@ -18,7 +23,7 @@ class RSA_SK_Guard
 
     ~RSA_SK_Guard()
     {
-        reset();
+        free();
     }
 
     RSA_SK_Guard &operator=(const RSA_SK_Guard &) = delete;
@@ -32,40 +37,50 @@ class RSA_SK_Guard
         *this = std::move(rhs);
     }
 
-    [[nodiscard]] EVP_PKEY *get() const noexcept
+    [[nodiscard]]
+    const EVP_PKEY *get() const noexcept
     {
-        return pkey_;
+        return pkey_.get();
     }
 
-    [[nodiscard]] bool has_value() const noexcept
+    [[nodiscard]]
+    EVP_PKEY *get() noexcept
     {
-        return nullptr != pkey_;
+        return pkey_.get();
     }
 
-    [[nodiscard]] Type get_type() const noexcept
+    [[nodiscard]]
+    bool has_value() const noexcept
+    {
+        return pkey_.has_value() && is_rsa_type(type_);
+    }
+
+    [[nodiscard]]
+    Type get_type() const noexcept
     {
         return type_;
     }
 
-    [[nodiscard]] RSA_SK_Guard clone() const;
+    [[nodiscard]]
+    RSA_SK_Guard clone() const;
 
-    [[nodiscard]] std::vector<std::byte> get_mgf1_salt() const;
+    [[nodiscard]]
+    std::vector<std::byte> get_mgf1_salt() const;
 
-    void reset()
+    void free()
     {
-        EVP_PKEY_free(pkey_);
-        pkey_ = nullptr;
-        type_ = Type::UNKNOWN_VRF_TYPE;
+        pkey_.free();
+        type_ = Type::UNKNOWN;
     }
 
   private:
-    RSA_SK_Guard(Type type, EVP_PKEY *pkey) : type_(type), pkey_(pkey) {};
+    RSA_SK_Guard(Type type, EVP_PKEY_Guard pkey) : type_{type}, pkey_{std::move(pkey)} {};
 
-    static EVP_PKEY *generate_rsa_key(Type type);
+    static EVP_PKEY_Guard generate_rsa_key(Type type);
 
-    Type type_ = Type::UNKNOWN_VRF_TYPE;
+    Type type_ = Type::UNKNOWN;
 
-    EVP_PKEY *pkey_ = nullptr;
+    EVP_PKEY_Guard pkey_;
 };
 
 class RSA_PK_Guard
@@ -73,11 +88,13 @@ class RSA_PK_Guard
   public:
     RSA_PK_Guard() = default;
 
+    RSA_PK_Guard(const RSA_SK_Guard &sk_guard);
+
     RSA_PK_Guard(Type type, std::span<const std::byte> der_spki);
 
     ~RSA_PK_Guard()
     {
-        reset();
+        free();
     }
 
     RSA_PK_Guard &operator=(const RSA_PK_Guard &) = delete;
@@ -91,41 +108,51 @@ class RSA_PK_Guard
         *this = std::move(rhs);
     }
 
-    [[nodiscard]] EVP_PKEY *get() const noexcept
+    [[nodiscard]]
+    const EVP_PKEY *get() const noexcept
     {
-        return pkey_;
+        return pkey_.get();
     }
 
-    [[nodiscard]] bool has_value() const noexcept
+    [[nodiscard]]
+    EVP_PKEY *get() noexcept
     {
-        return nullptr != pkey_;
+        return pkey_.get();
     }
 
-    [[nodiscard]] Type get_type() const noexcept
+    [[nodiscard]]
+    bool has_value() const noexcept
+    {
+        return pkey_.has_value() && is_rsa_type(type_);
+    }
+
+    [[nodiscard]]
+    Type get_type() const noexcept
     {
         return type_;
     }
 
-    [[nodiscard]] RSA_PK_Guard clone() const;
+    [[nodiscard]]
+    RSA_PK_Guard clone() const;
 
-    [[nodiscard]] std::vector<std::byte> get_mgf1_salt() const;
+    [[nodiscard]]
+    std::vector<std::byte> get_mgf1_salt() const;
 
-    void reset()
+    void free()
     {
-        EVP_PKEY_free(pkey_);
-        pkey_ = nullptr;
-        type_ = Type::UNKNOWN_VRF_TYPE;
+        pkey_.free();
+        type_ = Type::UNKNOWN;
     }
 
   private:
-    RSA_PK_Guard(Type type, EVP_PKEY *pkey) : type_(type), pkey_(pkey) {};
+    RSA_PK_Guard(Type type, EVP_PKEY_Guard pkey) : type_{type}, pkey_{std::move(pkey)} {};
 
-    Type type_ = Type::UNKNOWN_VRF_TYPE;
+    Type type_ = Type::UNKNOWN;
 
-    EVP_PKEY *pkey_ = nullptr;
+    EVP_PKEY_Guard pkey_;
 };
 
 template <typename T>
 concept RSAGuard = std::same_as<T, RSA_PK_Guard> || std::same_as<T, RSA_SK_Guard>;
 
-} // namespace vrf::rsavrf
+} // namespace vrf::rsa

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -21,7 +24,8 @@ class LoggerManager
         logger_ = nullptr;
     }
 
-    [[nodiscard]] const std::shared_ptr<spdlog::logger> &get_logger() const
+    [[nodiscard]]
+    const std::shared_ptr<spdlog::logger> &get_logger() const
     {
         return logger_;
     }

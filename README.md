@@ -22,8 +22,8 @@ After this, the test and benchmark executables are available in your build direc
 
 ## Implemented VRFs
 
-The library implements the RSA-FDH based VRF ([https://datatracker.ietf.org/doc/rfc9381](https://datatracker.ietf.org/doc/rfc9381)), as well as a variant based on standard RSA-PSS signatures, for multiple parameter sets.
-An elliptic curve-based EC-VRF implementation is in progress.
+The library implements RSA-FDH VRF and elliptic curve VRF based on [RFC9381](https://datatracker.ietf.org/doc/rfc9381).
+It also implements an RSA VRF variant based on standard RSA-PSS signatures.
 
 ## Usage
 
@@ -43,6 +43,7 @@ They are described by the following enum values:
 - `vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256`
 - `vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384`
 - `vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512`
+- `vrf::Type::EC_VRF_P256_SHA256_TAI`
 
 The following code snippet creates an RSA-FDH VRF with a 2048-bit key and uses SHA-256 as a hash function.
 The `vrf::VRF::Create` function creates a VRF secret key and stores it in memory.

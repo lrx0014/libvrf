@@ -1,0 +1,108 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
+#pragma once
+
+#include "vrf/guards.h"
+#include "vrf/type.h"
+#include <cstddef>
+#include <openssl/ec.h>
+#include <span>
+#include <utility>
+#include <vector>
+
+namespace vrf::ec
+{
+
+enum class PointCompression : int
+{
+    COMPRESSED = POINT_CONVERSION_COMPRESSED,
+    UNCOMPRESSED = POINT_CONVERSION_UNCOMPRESSED,
+};
+
+enum class PointToBytesMethod
+{
+    UNDEFINED = 0,
+    SEC1_UNCOMPRESSED = 1,
+    SEC1_COMPRESSED = 2,
+};
+
+enum class BytesToPointMethod
+{
+    UNDEFINED = 0,
+    SEC1 = 1,
+};
+
+using point_to_bytes_ptr_t = std::size_t (*)(const EC_GROUP_Guard &group, const EC_POINT_Guard &pt, BN_CTX_Guard &bcg,
+                                             std::span<std::byte> out);
+
+[[nodiscard]]
+point_to_bytes_ptr_t get_point_to_bytes_method(PointToBytesMethod method);
+
+using bytes_to_point_ptr_t = EC_POINT_Guard (*)(const EC_GROUP_Guard &group, std::span<const std::byte> in,
+                                                BN_CTX_Guard &bcg);
+
+[[nodiscard]]
+bytes_to_point_ptr_t get_bytes_to_point_method(BytesToPointMethod method);
+
+std::size_t do_append_ecpoint_to_bytes(const EC_GROUP_Guard &group, PointToBytesMethod p2b_method, BN_CTX_Guard &bcg,
+                                       std::vector<std::byte> &append_to_out, const EC_POINT_Guard &pt);
+
+template <typename... Points>
+    requires(sizeof...(Points) >= 1) && (std::convertible_to<Points, const EC_POINT_Guard &> && ...)
+std::pair<bool, std::size_t> append_ecpoint_to_bytes(const EC_GROUP_Guard &group, PointToBytesMethod p2b_method,
+                                                     BN_CTX_Guard &bcg, std::vector<std::byte> &append_to_out,
+                                                     Points &&...points)
+{
+    bool success = true;
+    std::size_t total_size = 0;
+
+    // Folder over the comma operator.
+    (
+        [&]() {
+            const std::size_t written = do_append_ecpoint_to_bytes(group, p2b_method, bcg, append_to_out, points);
+            total_size += written;
+            success &= (written != 0);
+        }(),
+        ...);
+
+    return std::make_pair(success, total_size);
+}
+
+enum class E2CSaltMethod
+{
+    UNDEFINED = 0,
+    PUBLIC_KEY_COMPRESSED = 1,
+};
+
+using e2c_salt_ptr_t = std::vector<std::byte> (*)(Type type, const EC_GROUP_Guard &group, const EC_POINT_Guard &pk,
+                                                  BN_CTX_Guard &bcg);
+
+[[nodiscard]]
+e2c_salt_ptr_t get_e2c_salt_method(E2CSaltMethod method);
+
+enum class E2CMethod
+{
+    UNDEFINED = 0,
+    TRY_AND_INCREMENT = 1,
+};
+
+using e2c_ptr_t = EC_POINT_Guard (*)(Type type, const EC_GROUP_Guard &group, std::span<const std::byte> e2c_salt,
+                                     std::span<const std::byte> data, BN_CTX_Guard &bcg);
+
+[[nodiscard]]
+e2c_ptr_t get_e2c_method(E2CMethod method);
+
+enum class NonceGenMethod
+{
+    UNDEFINED = 0,
+    RFC6979 = 1,
+};
+
+using nonce_gen_ptr_t = BIGNUM_Guard (*)(Type type, const EC_GROUP_Guard &group, const BIGNUM_Guard &sk,
+                                         const std::span<const std::byte> m);
+
+[[nodiscard]]
+nonce_gen_ptr_t get_nonce_gen_method(NonceGenMethod method);
+
+} // namespace vrf::ec
