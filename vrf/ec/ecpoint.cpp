@@ -1,5 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
 
 #include "vrf/ec/ecpoint.h"
 #include "vrf/common.h"
@@ -508,10 +506,16 @@ bool ECPoint::double_scalar_multiply(const EC_GROUP_Guard &group, const ScalarTy
 {
     // Computes scalar1*this + scalar2*generator
 
-    // We require that at least one of the scalar inputs has a value.
-    if (group.get_curve() != get_curve() || (!scalar1.has_value() && !scalar2.has_value()))
+    if (!group.has_value() || group.get_curve() != get_curve())
     {
-        Logger()->error("double_scalar_multiply called with mismatched EC_GROUP or both scalars uninitialized.");
+        Logger()->error("double_scalar_multiply called with uninitialized EC_GROUP or mismatched EC_GROUP.");
+        return false;
+    }
+
+    // We require that at least one of the scalar inputs has a value.
+    if (!scalar1.has_value() && !scalar2.has_value())
+    {
+        Logger()->error("double_scalar_multiply called with both scalars uninitialized.");
         return false;
     }
 

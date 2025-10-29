@@ -7,6 +7,9 @@
 #include <limits>
 #include <vector>
 
+namespace vrf::tests
+{
+
 TEST(CommonTests, GetLibCtx)
 {
     OSSL_LIB_CTX *libctx = vrf::get_libctx();
@@ -105,3 +108,5 @@ TEST(CommonTests, SafeAdd)
         EXPECT_EQ(result.value(), std::uint16_t{255 + 255 + 1});
     }
 }
+
+} // namespace vrf::tests

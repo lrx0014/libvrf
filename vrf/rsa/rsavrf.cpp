@@ -63,7 +63,7 @@ template <RSAGuard T> bool check_bytes_in_modulus_range(std::span<const std::byt
         return false;
     }
 
-    const BIGNUM_Guard bn_test = bytes_to_int_big_endian(test, false /* secure */);
+    const BIGNUM_Guard bn_test = bytes_to_int_big_endian(test, true /* secure */);
     if (!bn_test.has_value())
     {
         Logger()->error("Failed to convert test input to BIGNUM for range check.");
@@ -365,7 +365,7 @@ bool mgf1(std::span<std::byte> mask, std::span<const std::byte> seed, const EVP_
     }
 
     // If the mask is too large, we cannot generate it.
-    if (mask.size() > std::numeric_limits<std::ptrdiff_t>::max())
+    if (!std::in_range<std::ptrdiff_t>(mask.size()))
     {
         Logger()->error("Requested MGF1 mask size is too large: {} bytes.", mask.size());
         return false;
@@ -431,9 +431,6 @@ bool mgf1(std::span<std::byte> mask, std::span<const std::byte> seed, const EVP_
         }
     }
 
-    // Set the highest-order byte of mask to zero.
-    mask[0] = std::byte{0x00};
-
     return true;
 }
 
@@ -475,7 +472,12 @@ std::vector<std::byte> construct_rsa_fdh_tbs(Type type, std::span<const std::byt
         Logger()->error("Failed to get EVP_MD for VRF type: {}", type_to_string(type));
         return {};
     }
-    if (!mgf1(ret, tbs, md))
+
+    // We will only output n_len - 1 bytes of mask, leaving the first byte of ret to zero, as ret will be
+    // read as a big-endian integer by the raw RSA signing primitive. Note that all bytes of ret are zero
+    // at this point.
+    const std::span<std::byte> mask_span{ret.begin() + 1, n_len - 1};
+    if (!mgf1(mask_span, tbs, md))
     {
         Logger()->error("Failed to compute MGF1 output for RSA-FDH.");
         return {};
@@ -627,7 +629,7 @@ std::unique_ptr<Proof> RSASecretKey::get_vrf_proof(std::span<const std::byte> in
     return ret;
 }
 
-RSASecretKey::RSASecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_guard_{}, mgf1_salt_{}
+RSASecretKey::RSASecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_guard_{}, pk_guard_{}, mgf1_salt_{}
 {
     RSA_SK_Guard sk_guard{type};
     if (!sk_guard.has_value())
@@ -654,6 +656,34 @@ RSASecretKey::RSASecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_guard_{}, m
     pk_guard_ = std::move(pk_guard);
     mgf1_salt_ = std::move(mgf1_salt);
     set_type(type);
+}
+
+RSASecretKey::RSASecretKey(RSA_SK_Guard sk_guard) : SecretKey{Type::UNKNOWN}, sk_guard_{}, pk_guard_{}, mgf1_salt_{}
+{
+    if (!sk_guard.has_value())
+    {
+        Logger()->warn("RSASecretKey constructor called with invalid RSA_SK_Guard.");
+        return;
+    }
+
+    RSA_PK_Guard pk_guard{sk_guard};
+    if (!pk_guard.has_value())
+    {
+        Logger()->error("RSASecretKey constructor failed to create RSA public key from secret key.");
+        return;
+    }
+
+    std::vector<std::byte> mgf1_salt = sk_guard.get_mgf1_salt();
+    if (mgf1_salt.empty())
+    {
+        Logger()->error("RSASecretKey constructor failed to generate MGF1 salt.");
+        return;
+    }
+
+    sk_guard_ = std::move(sk_guard);
+    pk_guard_ = std::move(pk_guard);
+    mgf1_salt_ = std::move(mgf1_salt);
+    set_type(sk_guard_.get_type());
 }
 
 RSASecretKey &RSASecretKey::operator=(RSASecretKey &&rhs) noexcept

@@ -4,9 +4,9 @@
 #include "vrf/guards.h"
 #include "vrf/log.h"
 #include <cstddef>
-#include <limits>
 #include <openssl/bn.h>
 #include <span>
+#include <utility>
 
 namespace vrf
 {
@@ -20,7 +20,7 @@ using BN_bn2binpad_func_t = int (*)(const BIGNUM *, unsigned char *, int);
 
 BIGNUM_Guard bytes_to_int_core(BN_bin2bn_func_t func, std::span<const std::byte> in, bool secure)
 {
-    if (in.empty() && in.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+    if (in.empty() && !std::in_range<int>(in.size()))
     {
         Logger()->error("bytes_to_int_core called with empty or too-large input data.");
         return {};
@@ -44,7 +44,7 @@ std::size_t int_to_bytes_core(BN_bn2binpad_func_t func, const BIGNUM_Guard &bn, 
         Logger()->error("int_to_bytes_core called with uninitialized BIGNUM.");
         return 0;
     }
-    if (out.size() > std::numeric_limits<int>::max())
+    if (!std::in_range<int>(out.size()))
     {
         Logger()->error("int_to_bytes_core called with too-large output buffer size.");
         return 0;

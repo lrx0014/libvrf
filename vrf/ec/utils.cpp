@@ -108,8 +108,8 @@ std::vector<std::byte> e2c_salt_from_public_key(Type type, const EC_GROUP_Guard 
     }
 
     // The salt is just the compressed encoding of the public key.
-    std::vector<std::byte> salt{};
-    auto [success, _] = append_ecpoint_to_bytes(group, PointToBytesMethod::SEC1_COMPRESSED, bcg, salt, pk);
+    std::vector<std::byte> salt(params.pt_len);
+    auto [success, _] = append_ecpoint_to_bytes(group, PointToBytesMethod::SEC1_COMPRESSED, bcg, salt.begin(), pk);
 
     return success ? salt : std::vector<std::byte>{};
 }
@@ -143,31 +143,27 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
     // Check that we are not getting any overflows in the size calculations.
     const std::optional<std::size_t> buf_size = safe_add(
         suite_string_len, std::uint32_t{3} /* 2x domain separator + ctr string*/, e2c_salt.size(), data.size());
-    if (!buf_size || *buf_size > static_cast<std::size_t>(std::numeric_limits<std::ptrdiff_t>::max()))
+    if (!buf_size || !std::in_range<std::ptrdiff_t>(*buf_size))
     {
         Logger()->error("Buffer size overflow in ecvrf_try_and_increment_method.");
         return {};
     }
 
-    const std::ptrdiff_t suite_string_start = 0;
-    const std::ptrdiff_t domain_separator_front_start =
-        suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
-    const std::ptrdiff_t e2c_salt_start =
-        domain_separator_front_start + static_cast<std::ptrdiff_t>(sizeof(domain_separator_front));
-    const std::ptrdiff_t data_start = e2c_salt_start + static_cast<std::ptrdiff_t>(e2c_salt.size());
-    const std::ptrdiff_t ctr_start = data_start + static_cast<std::ptrdiff_t>(data.size());
-    const std::ptrdiff_t domain_separator_back_start =
-        ctr_start + static_cast<std::ptrdiff_t>(sizeof(std::uint8_t /* ctr */));
-
     std::vector<std::byte> buf(*buf_size);
 
+    const auto suite_string_start = buf.begin();
+    const auto domain_separator_front_start = suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
+    const auto e2c_salt_start = domain_separator_front_start + 1;
+    const auto data_start = e2c_salt_start + static_cast<std::ptrdiff_t>(e2c_salt.size());
+    const auto ctr_start = data_start + static_cast<std::ptrdiff_t>(data.size());
+    const auto domain_separator_back_start = ctr_start + 1 /* ctr */;
+
     // Copy in everything except the counter value.
-    copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len,
-           buf.begin() + suite_string_start);
-    copy_n(&domain_separator_front, sizeof(domain_separator_front), buf.begin() + domain_separator_front_start);
-    copy(e2c_salt.begin(), e2c_salt.end(), buf.begin() + e2c_salt_start);
-    copy(data.begin(), data.end(), buf.begin() + data_start);
-    copy_n(&domain_separator_back, sizeof(domain_separator_back), buf.begin() + domain_separator_back_start);
+    copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, suite_string_start);
+    *domain_separator_front_start = domain_separator_front;
+    copy(e2c_salt.begin(), e2c_salt.end(), e2c_salt_start);
+    copy(data.begin(), data.end(), data_start);
+    *domain_separator_back_start = domain_separator_back;
 
     BIGNUM_Guard cofactor{};
     if (1 != params.cofactor)
@@ -187,7 +183,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
     do
     {
         // Copy in the counter value
-        copy_n(reinterpret_cast<const std::byte *>(&ctr), sizeof(ctr), buf.begin() + ctr_start);
+        *ctr_start = static_cast<std::byte>(ctr);
 
         // Hash buf
         std::vector<std::byte> hash = compute_hash(params.digest, buf);

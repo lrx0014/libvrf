@@ -21,6 +21,8 @@ class RSA_SK_Guard
 
     RSA_SK_Guard(Type type);
 
+    RSA_SK_Guard(Type type, EVP_PKEY_Guard pkey) : type_{type}, pkey_{std::move(pkey)} {};
+
     ~RSA_SK_Guard()
     {
         free();
@@ -74,8 +76,6 @@ class RSA_SK_Guard
     }
 
   private:
-    RSA_SK_Guard(Type type, EVP_PKEY_Guard pkey) : type_{type}, pkey_{std::move(pkey)} {};
-
     static EVP_PKEY_Guard generate_rsa_key(Type type);
 
     Type type_ = Type::UNKNOWN;

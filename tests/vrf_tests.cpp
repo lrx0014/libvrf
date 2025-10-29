@@ -1,14 +1,19 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
+#include "vrf/../tests/utils.h"
 #include "vrf/vrf.h"
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <gtest/gtest.h>
 #include <limits>
 #include <random>
+#include <string>
+
+namespace vrf::tests
+{
 
 namespace
 {
@@ -28,11 +33,27 @@ std::vector<std::byte> random_bytes(std::size_t length)
     }
 
     std::vector<std::byte> result(length);
-    std::copy(reinterpret_cast<std::byte*>(words.data()),
-              reinterpret_cast<std::byte*>(words.data()) + length,
+    std::copy(reinterpret_cast<std::byte *>(words.data()), reinterpret_cast<std::byte *>(words.data()) + length,
               result.data());
 
     return result;
+}
+
+void check_test_vector(const std::unique_ptr<SecretKey> &vrf_sk, const std::vector<std::byte> &data,
+                       const std::vector<std::byte> &expected_proof, const std::vector<std::byte> &expected_value)
+{
+    ASSERT_NE(nullptr, vrf_sk.get());
+    ASSERT_TRUE(vrf_sk->is_initialized());
+    std::unique_ptr<Proof> proof = vrf_sk->get_vrf_proof(data);
+    ASSERT_NE(nullptr, proof);
+    ASSERT_TRUE(proof->is_initialized());
+    std::vector<std::byte> proof_bytes = proof->to_bytes();
+    ASSERT_EQ(expected_proof, proof_bytes);
+    std::unique_ptr<PublicKey> vrf_pk = vrf_sk->get_public_key();
+    ASSERT_NE(nullptr, vrf_pk.get());
+    auto [success, value] = vrf_pk->verify_vrf_proof(data, proof);
+    ASSERT_TRUE(success);
+    ASSERT_EQ(expected_value, value);
 }
 
 } // namespace
@@ -373,3 +394,56 @@ INSTANTIATE_TEST_SUITE_P(RSAVRFTypes, VRFTest,
                                          vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
 
 INSTANTIATE_TEST_SUITE_P(ECVRFTypes, VRFTest, testing::Values(vrf::Type::EC_VRF_P256_SHA256_TAI));
+
+class RSATestVectors : public testing::TestWithParam<vrf::Type>
+{
+};
+
+TEST_P(RSATestVectors, TestVectors)
+{
+    vrf::Type type = GetParam();
+    if (!is_rsa_type(type))
+    {
+        GTEST_SKIP() << "Skipping non-RSA type in RSAVRFTestVectors.";
+    }
+
+    // Create a VRF key pair.
+    const utils::RSA_VRF_TestVectorParams params = utils::get_rsa_vrf_test_vector_params(type);
+    const std::unique_ptr<SecretKey> sk = utils::make_rsa_vrf_secret_key(type, params.p, params.q);
+
+    check_test_vector(sk, utils::parse_hex_bytes(params.m), utils::parse_hex_bytes(params.proof),
+                      utils::parse_hex_bytes(params.value));
+}
+
+class ECTestVectors : public testing::TestWithParam<vrf::Type>
+{
+};
+
+TEST_P(ECTestVectors, TestVectors)
+{
+    vrf::Type type = GetParam();
+    if (!is_ec_type(type))
+    {
+        GTEST_SKIP() << "Skipping non-EC type in ECVRFTestVectors.";
+    }
+
+    // Get the test vector parameters.
+    const utils::EC_VRF_TestVectorParams params = utils::get_ec_vrf_test_vector_params(type);
+    const std::size_t test_vector_count = params.sk.size();
+
+    for (std::size_t i = 0; i < test_vector_count; ++i)
+    {
+        const std::unique_ptr<SecretKey> sk = utils::make_ec_vrf_secret_key(type, params.sk[i]);
+
+        check_test_vector(sk, utils::parse_hex_bytes(params.m[i]), utils::parse_hex_bytes(params.proof[i]),
+                          utils::parse_hex_bytes(params.value[i]));
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(TestVectorTypes, RSATestVectors,
+                         testing::Values(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256, vrf::Type::RSA_FDH_VRF_RSA3072_SHA256,
+                                         vrf::Type::RSA_FDH_VRF_RSA4096_SHA384));
+
+INSTANTIATE_TEST_SUITE_P(TestVectorTypes, ECTestVectors, testing::Values(vrf::Type::EC_VRF_P256_SHA256_TAI));
+
+} // namespace vrf::tests

@@ -13,6 +13,7 @@
 #include <openssl/objects.h>
 #include <openssl/params.h>
 #include <tuple>
+#include <utility>
 
 namespace vrf::ec
 {
@@ -41,16 +42,33 @@ ScalarType make_challenge(Type type, const EC_GROUP_Guard &group, Points &&...po
 
     const std::byte domain_separator_front = std::byte{0x02};
     const std::byte domain_separator_back = std::byte{0x00};
+    const std::size_t suite_string_len = params.suite_string_len;
 
-    std::vector<std::byte> challenge_buf{domain_separator_front};
-    auto [success, written] = append_ecpoint_to_bytes(group, PointToBytesMethod::SEC1_COMPRESSED, bcg, challenge_buf,
+    const std::optional<std::size_t> challenge_input_buf_size =
+        safe_add(suite_string_len, 2u /* domain separators */, (sizeof...(Points) * params.pt_len));
+    if (!challenge_input_buf_size.has_value() || !std::in_range<std::ptrdiff_t>(*challenge_input_buf_size))
+    {
+        Logger()->error("make_challenge failed to compute challenge input buffer size.");
+        return {};
+    }
+
+    std::vector<std::byte> challenge_buf(*challenge_input_buf_size);
+    const auto suite_string_start = challenge_buf.begin();
+    const auto domain_separator_front_start = suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
+    const auto points_start = domain_separator_front_start + 1;
+    const auto domain_separator_back_start =
+        points_start + static_cast<std::ptrdiff_t>(sizeof...(Points) * params.pt_len);
+
+    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, suite_string_start);
+    *domain_separator_front_start = domain_separator_front;
+    auto [success, written] = append_ecpoint_to_bytes(group, PointToBytesMethod::SEC1_COMPRESSED, bcg, points_start,
                                                       std::forward<Points>(points)...);
-    if (!success)
+    if (!success || challenge_buf.size() != written + suite_string_len + 2 /* domain separators */)
     {
         Logger()->error("make_challenge failed to encode points to bytes.");
         return {};
     }
-    challenge_buf.push_back(domain_separator_back);
+    *domain_separator_back_start = domain_separator_back;
 
     // Hash the concatenated point representations to create the challenge.
     std::vector<std::byte> challenge = compute_hash(params.digest, challenge_buf);
@@ -186,10 +204,9 @@ std::vector<std::byte> get_vrf_value_internal(const ECVRFParams &params, const E
     // This function does no validation of its inputs.
 
     // Clear any cofactor from gamma.
-    ScalarType cofactor{};
     if (1 != params.cofactor)
     {
-        cofactor = BIGNUM_Guard{false};
+        ScalarType cofactor{false};
         if (!cofactor.has_value() || 1 != BN_set_word(cofactor.get().get(), params.cofactor))
         {
             Logger()->error("ECProof::get_vrf_value failed to create or set cofactor BIGNUM.");
@@ -217,15 +234,19 @@ std::vector<std::byte> get_vrf_value_internal(const ECVRFParams &params, const E
     const std::size_t hash_buf_size = params.suite_string_len + 1 /* domain_separator_front */ +
                                       params.pt_len /* cofactor-cleared gamma */ + 1 /* domain_separator_back */;
 
-    std::vector<std::byte> hash_buf{};
-    hash_buf.reserve(hash_buf_size);
-    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), params.suite_string_len,
-                std::back_inserter(hash_buf));
-    hash_buf.push_back(domain_separator_front);
-    copy(cofactor_cleared_gamma_buf.cbegin(), cofactor_cleared_gamma_buf.cend(), std::back_inserter(hash_buf));
-    hash_buf.push_back(domain_separator_back);
+    std::vector<std::byte> hash_buf(hash_buf_size);
 
-    return hash_buf;
+    const auto suite_string_start = hash_buf.begin();
+    const auto domain_separator_front_start = suite_string_start + static_cast<std::ptrdiff_t>(params.suite_string_len);
+    const auto cofactor_cleared_gamma_start = domain_separator_front_start + 1;
+    const auto domain_separator_back_start = cofactor_cleared_gamma_start + static_cast<std::ptrdiff_t>(params.pt_len);
+
+    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), params.suite_string_len, suite_string_start);
+    *domain_separator_front_start = domain_separator_front;
+    std::copy_n(cofactor_cleared_gamma_buf.begin(), params.pt_len, cofactor_cleared_gamma_start);
+    *domain_separator_back_start = domain_separator_back;
+
+    return compute_hash(params.digest, hash_buf);
 }
 
 } // namespace
@@ -360,6 +381,61 @@ ECSecretKey::ECSecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_{}, pk_{}, gr
     set_type(type);
 }
 
+ECSecretKey::ECSecretKey(Type type, ScalarType sk) : SecretKey{Type::UNKNOWN}, sk_{}, pk_{}, group_{}
+{
+    if (!sk.has_value())
+    {
+        Logger()->warn("ECSecretKey constructor called with uninitialized secret key.");
+        return;
+    }
+
+    const ECVRFParams params = get_ecvrf_params(type);
+    if (nullptr == params.algorithm_name)
+    {
+        Logger()->warn("ECSecretKey constructor called with non-EC VRF type: {}", type_to_string(type));
+        return;
+    }
+
+    EC_GROUP_Guard group{params.curve};
+    if (!group.has_value())
+    {
+        Logger()->error("ECSecretKey constructor failed to create EC_GROUP for VRF type: {}",
+                        vrf::type_to_string(type));
+        return;
+    }
+
+    // Check that the given sk is in the valid range [1, order-1].
+    const BIGNUM *order = EC_GROUP_get0_order(group.get());
+    if (0 > BN_cmp(sk.get().get(), BN_value_one()) || 0 <= BN_cmp(sk.get().get(), order))
+    {
+        Logger()->warn("ECSecretKey constructor called with secret key out of valid range.");
+        return;
+    }
+
+    // Create the public key.
+    ECPoint pk{group};
+    if (!pk.has_value())
+    {
+        Logger()->error("ECSecretKey constructor failed to create public key point.");
+        return;
+    }
+
+    // Multiply the generator by the secret key to get the public key point.
+    BN_CTX_Guard bcg{true};
+    if (!pk.set_to_generator_multiple(group, sk, bcg))
+    {
+        Logger()->error("ECSecretKey constructor failed to compute public key point.");
+        return;
+    }
+
+    // Everything worked, so set the values in the new object.
+    using std::swap;
+    swap(sk_, sk);
+    swap(pk_, pk);
+    swap(group_, group);
+    set_type(type);
+}
+
 std::unique_ptr<PublicKey> ECSecretKey::get_public_key()
 {
     if (!is_initialized())
@@ -435,6 +511,14 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
         return nullptr;
     }
 
+    const point_to_bytes_ptr_t point_to_bytes = get_point_to_bytes_method(params.point_to_bytes);
+    const int_to_bytes_ptr_t int_to_bytes = get_int_to_bytes_method(params.bytes_to_int);
+    if (!point_to_bytes || !int_to_bytes)
+    {
+        Logger()->error("ECSecretKey::get_vrf_proof failed to get point_to_bytes or int_to_bytes methods.");
+        return nullptr;
+    }
+
     std::unique_ptr<vrf::Proof> ret = nullptr;
 
     // The proof requires the hash of the following data:
@@ -463,16 +547,15 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     }
 
     // We also need the encoded point as an octet string.
-    const point_to_bytes_ptr_t ecpoint_to_bytes = get_point_to_bytes_method(params.point_to_bytes);
     std::vector<std::byte> e2c_data(params.pt_len);
-    if (nullptr == ecpoint_to_bytes || (params.pt_len != ecpoint_to_bytes(group_, e2c_point.get(), bcg, e2c_data)))
+    if (params.pt_len != point_to_bytes(group_, e2c_point.get(), bcg, e2c_data))
     {
         Logger()->error("ECSecretKey::get_vrf_proof failed to convert encode-to-curve point to bytes.");
         return nullptr;
     }
 
     // Next, compute the gamma value.
-    ECPoint gamma{e2c_point};
+    ECPoint gamma = e2c_point;
     if (!gamma.scalar_multiply(group_, sk_, bcg))
     {
         Logger()->error("ECSecretKey::get_vrf_proof failed to compute gamma point.");
@@ -489,15 +572,15 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     }
 
     // We need nonce*G for the challenge.
-    ECPoint nonce_times_generator{group_, ECPoint::SpecialPoint::GENERATOR};
-    if (!nonce_times_generator.scalar_multiply(group_, nonce, bcg))
+    ECPoint nonce_times_generator{group_};
+    if (!nonce_times_generator.set_to_generator_multiple(group_, nonce, bcg))
     {
         Logger()->error("ECSecretKey::get_vrf_proof failed to compute nonce*generator point.");
         return nullptr;
     }
 
     // We also need nonce*e2c_point for the challenge.
-    ECPoint nonce_times_e2c_point{e2c_point};
+    ECPoint nonce_times_e2c_point = e2c_point;
     if (!nonce_times_e2c_point.scalar_multiply(group_, nonce, bcg))
     {
         Logger()->error("ECSecretKey::get_vrf_proof failed to compute nonce*e2c_point.");
@@ -509,7 +592,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     const ScalarType challenge = make_challenge(type, group_, pk_.get(), e2c_point.get(), gamma.get(),
                                                 nonce_times_generator.get(), nonce_times_e2c_point.get());
 
-    ScalarType s{sk_};
+    ScalarType s = sk_;
     if (!s.multiply(challenge, group_, bcg) || !s.reduce_mod_order(group_, bcg) || !s.add(nonce, group_, bcg) ||
         !s.reduce_mod_order(group_, bcg))
     {
@@ -517,15 +600,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
         return nullptr;
     }
 
-    const point_to_bytes_ptr_t point_to_bytes = get_point_to_bytes_method(params.point_to_bytes);
-    const int_to_bytes_ptr_t int_to_bytes = get_int_to_bytes_method(params.bytes_to_int);
-    if (!point_to_bytes || !int_to_bytes)
-    {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to get point_to_bytes or int_to_bytes methods.");
-        return nullptr;
-    }
-
-    std::vector<std::byte> proof{params.pt_len + params.c_len + params.q_len};
+    std::vector<std::byte> proof(params.pt_len + params.c_len + params.q_len);
     const auto gamma_start = proof.begin();
     const auto challenge_start = gamma_start + static_cast<std::ptrdiff_t>(params.pt_len);
     const auto s_start = challenge_start + static_cast<std::ptrdiff_t>(params.c_len);
@@ -720,7 +795,7 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
         return {false, {}};
     }
 
-    auto [success, gamma, challenge, s] = decode_proof(type, group_, ec_proof->proof_, bcg);
+    const auto [success, gamma, challenge, s] = decode_proof(type, group_, ec_proof->proof_, bcg);
     if (!success)
     {
         Logger()->warn("ECPublicKey::verify_vrf_proof failed to decode proof.");
@@ -800,7 +875,7 @@ std::vector<std::byte> ECPublicKey::to_bytes()
     }
 
     // Get the public key bytes.
-    point_to_bytes_ptr_t point_to_bytes = get_point_to_bytes_method(PointToBytesMethod::SEC1_UNCOMPRESSED);
+    point_to_bytes_ptr_t point_to_bytes = get_point_to_bytes_method(PointToBytesMethod::SEC1_COMPRESSED);
     std::size_t pk_size = point_to_bytes(group_, pk_.get(), bcg, {});
     std::vector<std::byte> pk_bytes(pk_size);
     if (0 == pk_size || pk_size != point_to_bytes(group_, pk_.get(), bcg, pk_bytes))

@@ -1,0 +1,119 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
+// These test vectors are from https://datatracker.ietf.org/doc/rfc9381.
+
+#pragma once
+
+#define RSA_FDH_2048_P                                                                                                 \
+    "EFB52A568FA3038FFFB853E2183791C6BC81CEEE86D20E8F9B6401DC79A8F1"                                                   \
+    "F6248D3A25FDB3F99245FCE41667DA038F59745B87CC1AED8B4A9C1D74E7D5C16C"                                               \
+    "F7343F2B12F1B5055337369BF018FA07ADC0D16F2164A516E80D2B4734F0C6563D"                                               \
+    "6EE6D4A9E1A54E300CFE9EE679AFC3D14A152DFB49B6CFB208BBF921F764AF"
+
+#define RSA_FDH_2048_Q                                                                                                 \
+    "ECBCA5EE88BBC635D8263AABA84F6502FDB2B4998A40F7C149133D840B6B1B"                                                   \
+    "D9A972FE2A981C770272B78FDA213F76A062DD865DD116D4C8980975EE9347FE0F"                                               \
+    "500567E51D78DBEE4A34E626051CF018D7FEB72F19189525D4F70B6467D0CEF514"                                               \
+    "633AB08A9E7A9EC632064B7B5E3E82128FE563757A614092FC5CF624D10E1B"
+
+#define RSA_FDH_3072_P                                                                                                 \
+    "EE5ADEA28491084E6635BD73FD95649915A11DA410D3F361C8ECCC90A4B834"                                                   \
+    "25146DA7B9E9D3994FD37D5FAD7FB759AE451EB99B1102D4671EAD23A2925133D1"                                               \
+    "9DF49CF9D7E9DCB69FD7555CA095338D0D2A84ABB6825050EAF5FFFAEFF17CCB08"                                               \
+    "33C6079081DFCBD98CED36A593557D29D64B0E0253CE2EE4E07FE2A06269DFE5CA"                                               \
+    "230FAD221A593A69D9534B2521C1B41D116CAFDEE02106228FF41433605453E237"                                               \
+    "777626953E79B46A84F50069E25B4F50496A928708ABCE30559EB183CF"
+
+#define RSA_FDH_3072_Q                                                                                                 \
+    "FB585BBC12F5695951F70A25E27682DC568ACF56115AD749709B2A6E915CDD"                                                   \
+    "66DFA06DB09B390C00B7C7EBEEA00845F73C999D8EA9352B1128BDF10113C7500B"                                               \
+    "76A03F6B38D0920B5589961549BE3D841CCC306F3EDD600A53B4B9D4FA1249AF87"                                               \
+    "AF58DFB3ED694289477E853F7D062F58911F7BDB98033B001EE90F11B78F031CFF"                                               \
+    "AC2B5A07E11B01A2A6C1CDA059A728F8253A5FF87267623253FC022D3993B27E2F"                                               \
+    "344B99EB6072FF7C7EE160724F8FBCA562BE49247FFAE42B55EA79DAD5"
+
+#define RSA_FDH_4096_P                                                                                                 \
+    "AC803464C8B2082153E15D5A0698D0A2990397FA01C1EDD6171A5315E743C9"                                                   \
+    "9FEB7ACD31C37529D4F83405E657C390488D19F7DA9EF9D9F9CFF4B460D2A26EB1"                                               \
+    "0F90CF4AAF55A19E21DC3BB697723A673E12BBC6580ADC7BB72ADADDF4682D656F"                                               \
+    "F5B992E62379BC7B0AC977F2BFBCFAC634E04ED597EF302684BE72C6BF7DB10B80"                                               \
+    "F452D412D09E63E017ACBA378CCC6EA58E683E5641D1E72248F3201A5632F4AF75"                                               \
+    "25E91F9E0733731D264FE36802F416CB3E182B21E67A12E3BFBA9A9CF40A45FF32"                                               \
+    "ADDFAE78063933120238AC61FBB995300A8602AA84F993BED375D6CCBA86AD0C8E"                                               \
+    "FA5F0950AA2C92779FEBCE9D05FA7A1F0D6E5C0D785DE93C108297"
+
+#define RSA_FDH_4096_Q                                                                                                 \
+    "FEB39BB6EE78ADFA524E9C0821F60C20D3CFF74F8B49731D67EA27D218BCB2"                                                   \
+    "0C87498D30DFD398BC23DAFF7B33DC330DB93E6C0E5E6196E035446C6DB7CFDB98"                                               \
+    "68B9518D94670B31F9C4D2109CF32C9CC8AC2FC4A6C2E1078510522C81610A81A7"                                               \
+    "07997933EE24030B572A76EE51AA683312ECAA51D8558B3B19CCCF65FC867354AE"                                               \
+    "193FD5C4F5D5A7180C5CA1E90FCC42F6915DFF69A3D1E49046F6C3EF841B262BA8"                                               \
+    "9DDCFDE2ED3CAEB5BD594181A76F6F1CE01FC65C6F925F6D5B77037C2CBF7B6047"                                               \
+    "E19F7B9C846C80238F1C8284C33BFD90C79DE91381BB883B0DE568AAF4B4A3C3F9"                                               \
+    "C98F92E9F6A51F010BCC1DACFD72BFDFDA29F527D7F4913153BEF7"
+
+#define RSA_FDH_2048_SHA256_M ""
+
+#define RSA_FDH_2048_SHA256_PROOF                                                                                      \
+    "14234FF8A9487E1B36A23086E258135B8A8A7FF2E23F19C0DFECA0C0A943F"                                                    \
+    "119EBD336FDC292EF67B56E32BA06F9941893754A8B97C82F68974B2B34C17F6D4"                                               \
+    "3BFD55EB110CD7EA3452D59A24E4DDB8D4CDF040C814E22E3537CA09C2E2DC5DD8"                                               \
+    "EA281E6492AD335378F9F437EED30C51EEEEE66EF14EFB4000C75C802E9C5A6BB8"                                               \
+    "039C0258D4347981159D0EF6990B5E9C8AC2FB03915D7FF1FFA0626E2E11714A63"                                               \
+    "342E59124C1FCEA8E2816C1D9A7751FEAAA66CF6C82CD3C58FFDE66460D98246AB"                                               \
+    "358CC33BAEFAE4DFB0D191E9B6D6C0E3F92C35200408925DC8BEF39B78D1259F81"                                               \
+    "63A5003A693555F05290EF2E68345F27C6E2A8847C5C919D92E7505"
+
+#define RSA_FDH_2048_SHA256_VALUE "79F0615D4677FB72571889453644013F1A31B08D222E3CEE349D64CE1C41045A"
+
+#define RSA_FDH_2048_SHA256_PARAMS                                                                                     \
+    {RSA_FDH_2048_P, RSA_FDH_2048_Q, RSA_FDH_2048_SHA256_M, RSA_FDH_2048_SHA256_PROOF, RSA_FDH_2048_SHA256_VALUE}
+
+#define RSA_FDH_3072_SHA256_M "74657374"
+
+#define RSA_FDH_3072_SHA256_PROOF                                                                                      \
+    "69F6042D400DFAD4BDB9974FB73D12EC7823C6632DF6B0A97EBC14D8A443F"                                                    \
+    "74E1EB1A99B37204BA5C7E53BDAF7E3E3FAE9EFE47CC01D0B061585C8D757ECF00"                                               \
+    "663B3E1BD447D55B6EBD066B814A8D9C4434B224E9CB053A1FD038A58F3BF6B0C7"                                               \
+    "5B6F48F3C8D1CA398A730C133F86F244655F24C445324FDACD291D6D907F93EFB2"                                               \
+    "4B59E509F2F370392F5E262FC106292792352D93800F0A1E3A389786619A622F60"                                               \
+    "05CAB78EA5F0B5B7CA91AD2A9C6C34FC4A3F9B0332B99E907FFA7F750CDC8342E1"                                               \
+    "2DA78F13AD49953BAE1751C983CE3CD3335288AC856F85057A7F05ACBA6465A1C6"                                               \
+    "901BA30BC65B79FB7A847C42A5B4942D600EF316030F2CCAFBC6F2E1FF0B46FB5C"                                               \
+    "8517CD98C93F81ACF370CFDAB559BB4270D07DB5466E2342D56C476089F4738404"                                               \
+    "34CBCDBD1853B487A6DF346208D12C17A48FE50B73B96F640A9761F570A516F615"                                               \
+    "7432B83DD18A1D05CC27B6F283A02FCFDA147CF1471772E469961004BDE7FA1585"                                               \
+    "7E7BF97B5A83C33FDDBD9F4B2E2488F4ED5F7463C93F30B"
+
+#define RSA_FDH_3072_SHA256_VALUE "BFE966F3FABDE6F38A2792AD59BC836BBCA39DE6EFF64F15A42886DEFF6DFCC5"
+
+#define RSA_FDH_3072_SHA256_PARAMS                                                                                     \
+    {RSA_FDH_3072_P, RSA_FDH_3072_Q, RSA_FDH_3072_SHA256_M, RSA_FDH_3072_SHA256_PROOF, RSA_FDH_3072_SHA256_VALUE}
+
+#define RSA_FDH_4096_SHA384_M "73616D706C65"
+
+#define RSA_FDH_4096_SHA384_PROOF                                                                                      \
+    "89D801E364FD48C3B8672E7D7ABD8A2A1E5BD36BB1E38AF5AAEFA2F01CDE6"                                                    \
+    "86FA2E33F88FDCC8EB3BABCF1C66CBBF7DCDDB614041813990787BE5FEABE86BBE"                                               \
+    "C373D2CBF7C080CAA0E37A339D5DE1D1455DE28F9BEF76CD72500C669E9CAB4599"                                               \
+    "B55DC155D9DD5810174C170F646D3B0B459347C17347C0281EECF5055CF887D6BD"                                               \
+    "0A2C962C77D5FF9355A53CEA64C34EA0888110EC4EB32DA69022E293A8843D4C06"                                               \
+    "C9D6E020C594335720467A8337C6A939FB2C5D710F7BDAB48A52F4E7483DAE062C"                                               \
+    "1B9F66F7C9038BA9CEEF3D61CB4CC004319C94A267A2425B5F042CD7F1A17922D6"                                               \
+    "596A88A6FEFAEF41FC87742F2BADEE7D7613179589B4D02611AC8FD7895D926F48"                                               \
+    "4F79542CDF7F034DD536C9596DA2F588AC9840F6BB05875BD17107E7458CC5EA36"                                               \
+    "8A7699FD60C35B54253A718C26CF518712BE9D86213B2C6BDDD0B7DD169F9240E7"                                               \
+    "7BFC44223675454F9C5596AD2E6E607EA65011A721ECBFA993172AE372AE874377"                                               \
+    "9B33278D25E11CED77B14BC481FCE60E4FC10A8A211D8B359906509D6830C653D9"                                               \
+    "1C1A86865219DB43F62C70AC6780644D2BD73C5C256527A3EAEFAEBAF1F2207324"                                               \
+    "17E17DBF598636616F70F2088969AC796A853DC8A5F270A1C505797E83D1675E4F"                                               \
+    "40B59C150CA06C49BB0967A2E0C7E74EFF9E182D0F7BB6F54F68FE788B89D2191C"                                               \
+    "87BBF7F3927978449C2174BAA581DC64A9C58ED"
+
+#define RSA_FDH_4096_SHA384_VALUE                                                                                      \
+    "8EC4D150788513C85EEA3490D1A1EE1B7A397602D3F9C8B467527F09FAB5252E53"                                               \
+    "9F82E8002825608295EBBBA19644DD"
+
+#define RSA_FDH_4096_SHA384_PARAMS                                                                                     \
+    {RSA_FDH_4096_P, RSA_FDH_4096_Q, RSA_FDH_4096_SHA384_M, RSA_FDH_4096_SHA384_PROOF, RSA_FDH_4096_SHA384_VALUE}

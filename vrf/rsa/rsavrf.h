@@ -77,6 +77,8 @@ class RSASecretKey : public SecretKey
 
     RSASecretKey(Type type);
 
+    RSASecretKey(RSA_SK_Guard sk_guard);
+
     [[nodiscard]]
     std::unique_ptr<Proof> get_vrf_proof(std::span<const std::byte> in) override;
 

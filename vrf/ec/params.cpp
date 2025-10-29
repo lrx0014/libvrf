@@ -18,7 +18,7 @@ ECVRFParams get_ecvrf_params(Type type) noexcept
     switch (type)
     {
     case Type::EC_VRF_P256_SHA256_TAI:
-        return ECVRFParams{ECVRF_PARAMS(Curve::SECP256K1, 1, "SHA256", BytesToIntMethod::BE,
+        return ECVRFParams{ECVRF_PARAMS(Curve::PRIME256V1, 1, "SHA256", BytesToIntMethod::BE,
                                         PointToBytesMethod::SEC1_COMPRESSED, BytesToPointMethod::SEC1,
                                         E2CSaltMethod::PUBLIC_KEY_COMPRESSED, E2CMethod::TRY_AND_INCREMENT,
                                         NonceGenMethod::RFC6979, "\001", 32, 16, 32, 33, 32)};

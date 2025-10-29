@@ -76,6 +76,8 @@ class ECSecretKey : public SecretKey
 
     ECSecretKey(Type type);
 
+    ECSecretKey(Type type, ScalarType sk);
+
     [[nodiscard]] bool is_initialized() const noexcept override
     {
         return !sk_.is_zero() && pk_.has_value() && group_.has_value() && is_ec_type(get_type());

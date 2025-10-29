@@ -72,7 +72,16 @@ EC_GROUP_Guard::EC_GROUP_Guard(const EC_GROUP_Guard &source) : ec_group_{nullptr
 
 BIGNUM_Guard::BIGNUM_Guard(bool secure) : bn_{}, owned_{false}
 {
-    BIGNUM *bn = secure ? BN_secure_new() : BN_new();
+    BIGNUM *bn = nullptr;
+    if (secure)
+    {
+        bn = BN_secure_new();
+        BN_set_flags(bn, BN_FLG_CONSTTIME);
+    }
+    else
+    {
+        bn = BN_new();
+    }
     if (nullptr == bn)
     {
         Logger()->error("Failed to create ({}) BIGNUM.", secure ? "secure" : "non-secure");
@@ -103,7 +112,7 @@ void BIGNUM_Guard::free() noexcept
 
 bool BIGNUM_Guard::is_secure() const noexcept
 {
-    return (nullptr != bn_) ? (BN_get_flags(bn_, BN_FLG_SECURE) != 0) : false;
+    return (nullptr != bn_) ? BN_get_flags(bn_, BN_FLG_SECURE) != 0 && BN_get_flags(bn_, BN_FLG_CONSTTIME) != 0 : false;
 }
 
 BIGNUM_Guard &BIGNUM_Guard::operator=(BIGNUM_Guard &&rhs) noexcept

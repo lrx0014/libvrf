@@ -5,7 +5,9 @@
 
 #include "vrf/guards.h"
 #include "vrf/type.h"
+#include <algorithm>
 #include <cstddef>
+#include <iterator>
 #include <openssl/ec.h>
 #include <span>
 #include <utility>
@@ -45,14 +47,38 @@ using bytes_to_point_ptr_t = EC_POINT_Guard (*)(const EC_GROUP_Guard &group, std
 [[nodiscard]]
 bytes_to_point_ptr_t get_bytes_to_point_method(BytesToPointMethod method);
 
+template <std::output_iterator<std::byte> Out>
 std::size_t do_append_ecpoint_to_bytes(const EC_GROUP_Guard &group, PointToBytesMethod p2b_method, BN_CTX_Guard &bcg,
-                                       std::vector<std::byte> &append_to_out, const EC_POINT_Guard &pt);
+                                       Out out, const EC_POINT_Guard &pt)
+{
+    if (!group.has_value() || !pt.has_value() || !ensure_bcg_set(bcg, false))
+    {
+        return 0;
+    }
 
-template <typename... Points>
+    point_to_bytes_ptr_t pt_to_bytes = get_point_to_bytes_method(p2b_method);
+    std::size_t buf_size = pt_to_bytes(group, pt, bcg, {});
+    if (0 == buf_size)
+    {
+        return 0;
+    }
+
+    std::vector<std::byte> append_to_out(buf_size);
+    buf_size = pt_to_bytes(group, pt, bcg, append_to_out);
+    if (append_to_out.size() != buf_size)
+    {
+        return 0;
+    }
+
+    std::copy(append_to_out.begin(), append_to_out.end(), out);
+
+    return buf_size;
+}
+
+template <std::output_iterator<std::byte> Out, typename... Points>
     requires(sizeof...(Points) >= 1) && (std::convertible_to<Points, const EC_POINT_Guard &> && ...)
 std::pair<bool, std::size_t> append_ecpoint_to_bytes(const EC_GROUP_Guard &group, PointToBytesMethod p2b_method,
-                                                     BN_CTX_Guard &bcg, std::vector<std::byte> &append_to_out,
-                                                     Points &&...points)
+                                                     BN_CTX_Guard &bcg, Out out, Points &&...points)
 {
     bool success = true;
     std::size_t total_size = 0;
@@ -60,8 +86,9 @@ std::pair<bool, std::size_t> append_ecpoint_to_bytes(const EC_GROUP_Guard &group
     // Folder over the comma operator.
     (
         [&]() {
-            const std::size_t written = do_append_ecpoint_to_bytes(group, p2b_method, bcg, append_to_out, points);
+            const std::size_t written = do_append_ecpoint_to_bytes(group, p2b_method, bcg, out, points);
             total_size += written;
+            out += static_cast<std::ptrdiff_t>(written);
             success &= (written != 0);
         }(),
         ...);

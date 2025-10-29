@@ -180,7 +180,7 @@ constexpr int_to_bytes_ptr_t get_int_to_bytes_method(BytesToIntMethod method)
 enum class Curve : int
 {
     UNDEFINED = NID_undef,
-    SECP256K1 = NID_secp256k1,
+    PRIME256V1 = NID_X9_62_prime256v1,
 };
 
 [[nodiscard]]
@@ -194,8 +194,8 @@ constexpr Curve nid_to_curve(int nid) noexcept
 {
     switch (nid)
     {
-    case NID_secp256k1:
-        return Curve::SECP256K1;
+    case NID_X9_62_prime256v1:
+        return Curve::PRIME256V1;
     default:
         return Curve::UNDEFINED;
     }
