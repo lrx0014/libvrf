@@ -74,6 +74,10 @@ target_link_libraries(libvrf PRIVATE spdlog::spdlog_header_only)
 find_package(OpenSSL 3.2 REQUIRED)
 target_link_libraries(libvrf PUBLIC OpenSSL::Crypto)
 
+# Set UTF-8 encoding for MSVC and Clang-cl. This is required for spdlog.
+set(MSVC_LIKE $<OR:$<CXX_COMPILER_ID:MSVC>,$<AND:$<CXX_COMPILER_ID:Clang>,$<CXX_SIMULATE_ID:MSVC>>>)
+target_compile_options(libvrf PUBLIC "$<${MSVC_LIKE}:/utf-8>")
+
 # For debug builds, append "_debug" to the library name.
 set_target_properties(libvrf PROPERTIES DEBUG_POSTFIX "_debug")
 

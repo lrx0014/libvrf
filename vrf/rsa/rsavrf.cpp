@@ -516,6 +516,8 @@ std::vector<std::byte> construct_rsa_pss_tbs(Type type, std::span<const std::byt
         return {};
     }
 
+    const std::byte domain_separator = std::byte{0x01};
+
     const std::size_t suite_string_len = params.suite_string_len;
     const std::optional<std::size_t> tbs_len =
         safe_add(suite_string_len, 1u /* domain separator */, mgf1_salt.size(), data.size());
@@ -528,12 +530,12 @@ std::vector<std::byte> construct_rsa_pss_tbs(Type type, std::span<const std::byt
     std::vector<std::byte> tbs(*tbs_len);
 
     const auto suite_string_start = tbs.begin();
-    const auto domain_separator_pos = suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
-    const auto mgf1_salt_start = domain_separator_pos + 1;
+    const auto domain_separator_start = suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
+    const auto mgf1_salt_start = domain_separator_start + 1;
     const auto data_start = mgf1_salt_start + static_cast<std::ptrdiff_t>(mgf1_salt.size());
 
     std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, suite_string_start);
-    *domain_separator_pos = std::byte{0x01};
+    *domain_separator_start = domain_separator;
     std::copy(mgf1_salt.begin(), mgf1_salt.end(), mgf1_salt_start);
     std::copy(data.begin(), data.end(), data_start);
 
