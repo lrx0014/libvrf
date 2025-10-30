@@ -23,7 +23,7 @@ endif()
 # Where to look for our helper modules.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-project(libvrf VERSION 0.5.0 LANGUAGES CXX)
+project(libvrf VERSION 0.5.1 LANGUAGES CXX)
 
 # Define additional directory path variables.
 include(GNUInstallDirs)
@@ -68,7 +68,7 @@ message(STATUS "[libvrf] Building static library")
 # Require C++20 for libvrf and downstream.
 target_compile_features(libvrf PUBLIC cxx_std_20)
 
-find_package(spdlog REQUIRED)
+find_package(spdlog 1 REQUIRED)
 target_link_libraries(libvrf PRIVATE spdlog::spdlog_header_only)
 
 find_package(OpenSSL 3.2 REQUIRED)

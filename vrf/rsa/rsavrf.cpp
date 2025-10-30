@@ -8,7 +8,6 @@
 #include "vrf/rsa/params.h"
 #include <algorithm>
 #include <cstdint>
-#include <limits>
 #include <openssl/bn.h>
 #include <openssl/core_names.h>
 #include <openssl/encoder.h>
