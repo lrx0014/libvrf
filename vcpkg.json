@@ -1,6 +1,6 @@
 {
   "name": "libvrf",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "VRF implementation library in C++",
   "license": "MIT",
   "dependencies": [
@@ -21,5 +21,5 @@
       ]
     }
   },
-  "builtin-baseline": "b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01"
+  "builtin-baseline": "271a5b8850aa50f9a40269cbf3cf414b36e333d6"
 }

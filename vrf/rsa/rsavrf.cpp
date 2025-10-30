@@ -264,8 +264,8 @@ bool rsa_pss_nosalt_verify(std::span<const std::byte> signature, std::span<const
     // as the signature digest.
 
     // One-shot digest-verify.
-    return EVP_DigestVerify(mctx.get(), reinterpret_cast<const unsigned char *>(signature.data()),
-                                    signature.size(), reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size());
+    return EVP_DigestVerify(mctx.get(), reinterpret_cast<const unsigned char *>(signature.data()), signature.size(),
+                            reinterpret_cast<const unsigned char *>(tbs.data()), tbs.size());
 }
 
 /**
@@ -452,16 +452,31 @@ std::vector<std::byte> construct_rsa_fdh_tbs(Type type, std::span<const std::byt
         return {};
     }
 
+    const std::byte domain_separator = std::byte{0x01};
+
     const std::size_t suite_string_len = params.suite_string_len;
     const std::size_t n_len = (params.bits + 7) / 8;
+    const std::optional<std::size_t> tbs_len =
+        safe_add(suite_string_len, 1u /* domain separator */, mgf1_salt.size(), data.size());
 
-    // Set up the seed to MGF1.
-    std::vector<std::byte> tbs{};
-    tbs.reserve(suite_string_len + 1 /* domain separator */ + mgf1_salt.size() + data.size());
-    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, std::back_inserter(tbs));
-    tbs.push_back(std::byte{0x01});
-    std::copy(mgf1_salt.begin(), mgf1_salt.end(), std::back_inserter(tbs));
-    std::copy(data.begin(), data.end(), std::back_inserter(tbs));
+    // Set up the seed for MGF1,
+    if (!tbs_len.has_value() || !std::in_range<std::ptrdiff_t>(*tbs_len))
+    {
+        Logger()->error("construct_rsa_fdh_tbs computed TBS length is invalid or too large.");
+        return {};
+    }
+
+    std::vector<std::byte> tbs(*tbs_len);
+
+    const auto suite_string_start = tbs.begin();
+    const auto domain_separator_pos = suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
+    const auto mgf1_salt_start = domain_separator_pos + 1;
+    const auto data_start = mgf1_salt_start + static_cast<std::ptrdiff_t>(mgf1_salt.size());
+
+    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, suite_string_start);
+    *domain_separator_pos = domain_separator;
+    std::copy(mgf1_salt.begin(), mgf1_salt.end(), mgf1_salt_start);
+    std::copy(data.begin(), data.end(), data_start);
 
     // Evaluate MGF1. The output *must* have size `n_len` bytes. Otherwise, raw RSA signing will fail.
     std::vector<std::byte> ret(n_len);
@@ -502,14 +517,25 @@ std::vector<std::byte> construct_rsa_pss_tbs(Type type, std::span<const std::byt
     }
 
     const std::size_t suite_string_len = params.suite_string_len;
+    const std::optional<std::size_t> tbs_len =
+        safe_add(suite_string_len, 1u /* domain separator */, mgf1_salt.size(), data.size());
+    if (!tbs_len.has_value() || !std::in_range<std::ptrdiff_t>(*tbs_len))
+    {
+        Logger()->error("construct_rsa_pss_tbs computed TBS length is invalid or too large.");
+        return {};
+    }
 
-    std::vector<std::byte> tbs{};
-    tbs.reserve(suite_string_len + 1 /* domain separator */ + mgf1_salt.size() + data.size());
+    std::vector<std::byte> tbs(*tbs_len);
 
-    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, std::back_inserter(tbs));
-    tbs.push_back(std::byte{0x01});
-    std::copy(mgf1_salt.begin(), mgf1_salt.end(), std::back_inserter(tbs));
-    std::copy(data.begin(), data.end(), std::back_inserter(tbs));
+    const auto suite_string_start = tbs.begin();
+    const auto domain_separator_pos = suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
+    const auto mgf1_salt_start = domain_separator_pos + 1;
+    const auto data_start = mgf1_salt_start + static_cast<std::ptrdiff_t>(mgf1_salt.size());
+
+    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, suite_string_start);
+    *domain_separator_pos = std::byte{0x01};
+    std::copy(mgf1_salt.begin(), mgf1_salt.end(), mgf1_salt_start);
+    std::copy(data.begin(), data.end(), data_start);
 
     return tbs;
 }
@@ -565,14 +591,26 @@ std::vector<std::byte> RSAProof::get_vrf_value() const
     const Type type = get_type();
     const RSAVRFParams params = get_rsavrf_params(type);
 
+    const std::byte domain_separator = std::byte{0x02};
+
     const std::size_t suite_string_len = params.suite_string_len;
+    const std::optional<std::size_t> tbh_len = safe_add(suite_string_len, 1u /* domain separator */, proof_.size());
 
-    std::vector<std::byte> tbh{};
-    tbh.reserve(suite_string_len + 1 /* domain separator */ + proof_.size());
+    if (!tbh_len.has_value() || !std::in_range<std::ptrdiff_t>(*tbh_len))
+    {
+        Logger()->error("RSAProof::get_vrf_value computed TBH length is invalid or too large.");
+        return {};
+    }
 
-    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, std::back_inserter(tbh));
-    tbh.push_back(std::byte{0x02});
-    std::copy(proof_.begin(), proof_.end(), std::back_inserter(tbh));
+    std::vector<std::byte> tbh(*tbh_len);
+
+    const auto suite_string_start = tbh.begin();
+    const auto domain_separator_pos = suite_string_start + static_cast<std::ptrdiff_t>(suite_string_len);
+    const auto proof_start = domain_separator_pos + 1;
+
+    std::copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, suite_string_start);
+    *domain_separator_pos = domain_separator;
+    std::copy(proof_.begin(), proof_.end(), proof_start);
 
     return compute_hash(params.digest, tbh);
 }
