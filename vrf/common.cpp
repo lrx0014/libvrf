@@ -56,7 +56,7 @@ EVP_PKEY *decode_public_key_from_der_spki(const char *algorithm_name, std::span<
 {
     if (nullptr == algorithm_name || der_spki.empty())
     {
-        vrf::Logger()->warn("decode_public_key_from_der_spki called with null algorithm name or empty DER data.");
+        GetLogger()->warn("decode_public_key_from_der_spki called with null algorithm name or empty DER data.");
         return nullptr;
     }
 
@@ -65,7 +65,7 @@ EVP_PKEY *decode_public_key_from_der_spki(const char *algorithm_name, std::span<
                                                            EVP_PKEY_PUBLIC_KEY, get_libctx(), get_propquery());
     if (nullptr == dctx)
     {
-        vrf::Logger()->error("Failed to create OSSL_DECODER_CTX for loading public key.");
+        GetLogger()->error("Failed to create OSSL_DECODER_CTX for loading public key.");
         return nullptr;
     }
 
@@ -73,7 +73,7 @@ EVP_PKEY *decode_public_key_from_der_spki(const char *algorithm_name, std::span<
     std::size_t der_data_len = der_spki.size();
     if (1 != OSSL_DECODER_from_data(dctx, &der_data, &der_data_len))
     {
-        vrf::Logger()->warn("Failed to decode DER SPKI into EVP_PKEY using OSSL_DECODER_from_data.");
+        GetLogger()->warn("Failed to decode DER SPKI into EVP_PKEY using OSSL_DECODER_from_data.");
         EVP_PKEY_free(pkey);
         OSSL_DECODER_CTX_free(dctx);
         return nullptr;
@@ -87,7 +87,7 @@ std::vector<std::byte> encode_public_key_to_der_spki(const EVP_PKEY *pkey)
 {
     if (nullptr == pkey)
     {
-        vrf::Logger()->warn("encode_public_key_from_der_spki called with null key.");
+        GetLogger()->warn("encode_public_key_from_der_spki called with null key.");
         return {};
     }
 
@@ -98,7 +98,7 @@ std::vector<std::byte> encode_public_key_to_der_spki(const EVP_PKEY *pkey)
     std::size_t der_data_len = 0;
     if (1 != OSSL_ENCODER_to_data(ectx, &der_data, &der_data_len))
     {
-        vrf::Logger()->error("Failed to encode to DER SPKI using OSSL_ENCODER_to_data.");
+        GetLogger()->error("Failed to encode to DER SPKI using OSSL_ENCODER_to_data.");
         OSSL_ENCODER_CTX_free(ectx);
         return {};
     }
@@ -122,7 +122,7 @@ EVP_PKEY *evp_pkey_upref(EVP_PKEY *pkey)
 
     if (1 != EVP_PKEY_up_ref(pkey))
     {
-        vrf::Logger()->error("Failed to increment reference count for EVP_PKEY.");
+        GetLogger()->error("Failed to increment reference count for EVP_PKEY.");
         return nullptr;
     }
 

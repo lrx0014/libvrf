@@ -34,7 +34,7 @@ std::vector<std::byte> generate_mgf1_salt(const EVP_PKEY_Guard &pkey)
     BIGNUM_Guard n{};
     if (1 != EVP_PKEY_get_bn_param(pkey.get(), OSSL_PKEY_PARAM_RSA_N, n.free_and_get_addr(true)))
     {
-        Logger()->error("Failed to retrieve RSA modulus from EVP_PKEY for MGF1 salt generation.");
+        GetLogger()->error("Failed to retrieve RSA modulus from EVP_PKEY for MGF1 salt generation.");
         return {};
     }
 
@@ -49,7 +49,7 @@ std::vector<std::byte> generate_mgf1_salt(const EVP_PKEY_Guard &pkey)
     // Next, convert bn_n to a byte array with I2OSP and append to the salt.
     if (n_len != int_to_bytes_big_endian(n, std::span<std::byte>(salt.data() + 4, n_len)))
     {
-        Logger()->error("Failed to convert RSA modulus to byte array for MGF1 salt generation.");
+        GetLogger()->error("Failed to convert RSA modulus to byte array for MGF1 salt generation.");
         return {};
     }
 
@@ -144,7 +144,7 @@ EVP_PKEY_Guard RSA_SK_Guard::generate_rsa_key(Type type)
 {
     if (!is_rsa_type(type))
     {
-        Logger()->warn("generate_rsa_key called with non-RSA VRF type: {}", type_to_string(type));
+        GetLogger()->warn("generate_rsa_key called with non-RSA VRF type: {}", type_to_string(type));
         return {};
     }
 
@@ -153,26 +153,26 @@ EVP_PKEY_Guard RSA_SK_Guard::generate_rsa_key(Type type)
     EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_name(get_libctx(), algorithm_name, get_propquery())};
     if (!pctx.has_value())
     {
-        Logger()->error("Failed to create EVP_PKEY_CTX for RSA key generation.");
+        GetLogger()->error("Failed to create EVP_PKEY_CTX for RSA key generation.");
         return {};
     }
 
     if (0 >= EVP_PKEY_keygen_init(pctx.get()))
     {
-        Logger()->error("Failed to initialize RSA key generation; EVP_PKEY_keygen_init failed");
+        GetLogger()->error("Failed to initialize RSA key generation; EVP_PKEY_keygen_init failed.");
         return {};
     }
 
     if (!set_rsa_keygen_params(pctx, type))
     {
-        Logger()->error("Failed to set RSA key generation parameters; set_rsa_keygen_params failed");
+        GetLogger()->error("Failed to set RSA key generation parameters; set_rsa_keygen_params failed.");
         return {};
     }
 
     EVP_PKEY_Guard pkey{};
     if (1 != EVP_PKEY_generate(pctx.get(), pkey.free_and_get_addr()))
     {
-        Logger()->error("Failed to generate RSA key pair; EVP_PKEY_generate failed}");
+        GetLogger()->error("Failed to generate RSA key pair; EVP_PKEY_generate failed.");
         return {};
     }
 
@@ -184,7 +184,7 @@ RSA_SK_Guard::RSA_SK_Guard(Type type) : type_{Type::UNKNOWN}, pkey_{nullptr}
     EVP_PKEY_Guard pkey{generate_rsa_key(type)};
     if (!pkey.has_value())
     {
-        Logger()->error("RSA_PKEY_Guard constructor failed to generate RSA key.");
+        GetLogger()->error("RSA_PKEY_Guard constructor failed to generate RSA key.");
     }
     else
     {
@@ -202,7 +202,7 @@ std::vector<std::byte> RSA_SK_Guard::get_mgf1_salt() const
 {
     if (!pkey_.has_value())
     {
-        Logger()->error("get_mgf1_salt called on uninitialized RSA_SK_Guard.");
+        GetLogger()->error("get_mgf1_salt called on uninitialized RSA_SK_Guard.");
         return {};
     }
 
@@ -224,14 +224,14 @@ RSA_PK_Guard::RSA_PK_Guard(const RSA_SK_Guard &sk_guard) : type_{Type::UNKNOWN},
 {
     if (!sk_guard.has_value())
     {
-        Logger()->warn("RSA_PK_Guard constructor called with uninitialized RSA_SK_Guard.");
+        GetLogger()->warn("RSA_PK_Guard constructor called with uninitialized RSA_SK_Guard.");
         return;
     }
 
     const std::vector<std::byte> der_spki = encode_public_key_to_der_spki(sk_guard.get());
     if (der_spki.empty())
     {
-        Logger()->warn("RSA_PK_Guard constructor failed to encode public key from RSA_SK_Guard.");
+        GetLogger()->warn("RSA_PK_Guard constructor failed to encode public key from RSA_SK_Guard.");
         return;
     }
 
@@ -239,7 +239,7 @@ RSA_PK_Guard::RSA_PK_Guard(const RSA_SK_Guard &sk_guard) : type_{Type::UNKNOWN},
     RSA_PK_Guard pk_guard{sk_guard.get_type(), der_spki};
     if (!pk_guard.has_value())
     {
-        Logger()->warn("RSA_PK_Guard constructor failed to create from DER SPKI of RSA_SK_Guard.");
+        GetLogger()->warn("RSA_PK_Guard constructor failed to create from DER SPKI of RSA_SK_Guard.");
         return;
     }
 
@@ -254,14 +254,14 @@ RSA_PK_Guard::RSA_PK_Guard(Type type, std::span<const std::byte> der_spki) : typ
     EVP_PKEY_Guard pkey{decode_public_key_from_der_spki(params.algorithm_name, der_spki)};
     if (!pkey.has_value())
     {
-        Logger()->warn("RSA_PK_Guard constructor failed to load EVP_PKEY from provided DER SPKI.");
+        GetLogger()->warn("RSA_PK_Guard constructor failed to load EVP_PKEY from provided DER SPKI.");
         return;
     }
 
     // We need to still check that the loaded public key matches the expected parameters.
     if (!check_rsa_params(type, pkey, true /* check_pk */, false /* check_sk */))
     {
-        Logger()->warn("RSA_PK_Guard constructor found mismatched or invalid RSA parameters in provided DER SPKI.");
+        GetLogger()->warn("RSA_PK_Guard constructor found mismatched or invalid RSA parameters in provided DER SPKI.");
         return;
     }
 
@@ -279,7 +279,7 @@ std::vector<std::byte> RSA_PK_Guard::get_mgf1_salt() const
 {
     if (!pkey_.has_value())
     {
-        Logger()->warn("get_mgf1_salt called on uninitialized RSA_PK_Guard.");
+        GetLogger()->warn("get_mgf1_salt called on uninitialized RSA_PK_Guard.");
         return {};
     }
 

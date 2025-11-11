@@ -58,7 +58,7 @@ inline constexpr const char *type_to_string(Type type)
     case Type::EC_VRF_P256_SHA256_TAI:
         return "EC_VRF_P256_SHA256_TAI";
     default:
-        return "Unknown VRF Type";
+        return "UNKNOWN";
     }
 }
 

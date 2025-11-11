@@ -11,7 +11,7 @@ It comes with a CMake based build system, unit tests, and benchmarks.
 
 ### Build
 
-`libvrf` depends on [OpenSSL](https://github.com/openssl/openssl) and [spdlog](https://github.com/gabime/spdlog).
+`libvrf` depends only on [OpenSSL](https://github.com/openssl/openssl).
 To build, ensure [vcpkg](https://GitHub.com/Microsoft/vcpkg) is installed and run
 ```bash
 cmake -B build -S . -GNinja -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=<Debug|Release>
@@ -22,12 +22,12 @@ After this, the test and benchmark executables are available in your build direc
 
 ## Implemented VRFs
 
-The library implements RSA-FDH VRF and elliptic curve VRF based on [RFC9381](https://datatracker.ietf.org/doc/rfc9381).
+`libvrf` implements RSA-FDH VRF and elliptic curve VRF based on [RFC9381](https://datatracker.ietf.org/doc/rfc9381).
 It also implements an RSA VRF variant based on standard RSA-PSS signatures.
 
 ## Usage
 
-This library exposes a simple, type-safe API for creating VRF keypairs, producing proofs, verifying them, and (de)serializing keys and proofs.
+`libvrf` exposes a simple, type-safe API for creating VRF keypairs, producing proofs, verifying them, and (de)serializing keys and proofs.
 These functionalities are illustrated in the examples below.
 
 ### 1) Choosing the VRF type and key generation
@@ -138,3 +138,17 @@ This can retrieved using the member function `get_type()`.
 
 Each of the functions taking as input `std::span` of bytes has a flexible set of overloads that accepts spans of other 1-byte types (e.g., `unsigned char`, see the `ByteLike` concept in [vrf/vrf_base.h](vrf/vrf_base.h)), as well as overloads that accept a `std::ranges::contiguous_range` of similar 1-byte types with some limitations (see the `ByteRange` concept in [vrf/vrf_base.h](vrf/vrf_base.h)).
 This means that these functions can be called also by passing directly (by value or reference) `std::vector`, `std:array`, or other similar containers.
+
+### 5) Logging
+
+`libvrf` provides a simple logging API (see [vrf/log.h](vrf/log.h)), which can be adapted to work with almost any logging system.
+By default, the library simply logs to `std::cout` and `std::cerr` using the logger specified in [vrf/stdout_log.cpp](vrf/stdout_log.cpp).
+To create a custom logger, include [vrf/log.h](vrf/log.h) in your source file and create an instance of `std::shared_ptr<vrf::Logger>` using `vrf::Logger::Create`.
+This function takes as input three arrays of operation handlers (wrapped in `std::function`) for (1) the actual logging operations, (2) manual flush events, and (3) closing the log.
+Any of the handlers can be left as `nullptr`, in which case the function is simply not called.
+For simple examples, see [vrf/stdout_log.cpp](vrf/stdout_log.cpp) and [tests/log_tests.cpp](tests/log_tests.cpp).
+
+Once a `std::shared_ptr<vrf::Logger>` instance has been created, it can be used to log messages at different log levels (see `vrf::LogLevel` in [vrf/log.h](vrf/log.h)).
+It can also be used to set a (minimum) log level, so that logs at any lower level will not be logged.
+The default log level is `vrf::LogLevel::INFO`.
+

@@ -8,6 +8,7 @@ endif()
 
 set(libvrf_TESTS_FILES ${libvrf_TESTS_FILES}
     ${CMAKE_CURRENT_LIST_DIR}/common_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/log_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/test_runner.cpp
     ${CMAKE_CURRENT_LIST_DIR}/utils.cpp
     ${CMAKE_CURRENT_LIST_DIR}/vrf_tests.cpp

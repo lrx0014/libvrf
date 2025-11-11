@@ -22,7 +22,7 @@ std::size_t sec1_point_to_bytes(const EC_GROUP_Guard &group, PointCompression co
 {
     if (!group.has_value() || !pt.has_value())
     {
-        Logger()->error("sec1_point_to_bytes called with uninitialized EC_GROUP or EC_POINT.");
+        GetLogger()->error("sec1_point_to_bytes called with uninitialized EC_GROUP or EC_POINT.");
         return 0;
     }
 
@@ -31,7 +31,7 @@ std::size_t sec1_point_to_bytes(const EC_GROUP_Guard &group, PointCompression co
     std::size_t buf_size = EC_POINT_point2oct(group.get(), pt.get(), form, nullptr, 0, bcg.get());
     if (0 == buf_size)
     {
-        Logger()->error("sec1_point_to_bytes failed to determine EC_POINT size.");
+        GetLogger()->error("sec1_point_to_bytes failed to determine EC_POINT size.");
         return 0;
     }
 
@@ -43,7 +43,7 @@ std::size_t sec1_point_to_bytes(const EC_GROUP_Guard &group, PointCompression co
     // Require at least buf_size bytes in out.
     if (out.size() < buf_size)
     {
-        Logger()->error("sec1_point_to_bytes called with insufficient output buffer size.");
+        GetLogger()->error("sec1_point_to_bytes called with insufficient output buffer size.");
         return 0;
     }
 
@@ -51,7 +51,7 @@ std::size_t sec1_point_to_bytes(const EC_GROUP_Guard &group, PointCompression co
                                   out.size(), bcg.get());
     if (0 == buf_size)
     {
-        Logger()->error("sec1_point_to_bytes failed to convert EC_POINT to bytes.");
+        GetLogger()->error("sec1_point_to_bytes failed to convert EC_POINT to bytes.");
         return 0;
     }
 
@@ -62,24 +62,24 @@ EC_POINT_Guard sec1_bytes_to_point(const EC_GROUP_Guard &group, std::span<const 
 {
     if (!group.has_value())
     {
-        Logger()->error("sec1_bytes_to_point called with uninitialized EC_GROUP.");
+        GetLogger()->error("sec1_bytes_to_point called with uninitialized EC_GROUP.");
         return {};
     }
     if (in.empty())
     {
-        Logger()->error("sec1_bytes_to_point called with empty input data.");
+        GetLogger()->error("sec1_bytes_to_point called with empty input data.");
         return {};
     }
     if (!ensure_bcg_set(bcg, false))
     {
-        Logger()->error("sec1_bytes_to_point failed to obtain BN_CTX.");
+        GetLogger()->error("sec1_bytes_to_point failed to obtain BN_CTX.");
         return {};
     }
 
     EC_POINT_Guard pt{group};
     if (!pt.has_value())
     {
-        Logger()->error("Failed to create EC_POINT in sec1_bytes_to_point.");
+        GetLogger()->error("Failed to create EC_POINT in sec1_bytes_to_point.");
         return {};
     }
 
@@ -88,7 +88,7 @@ EC_POINT_Guard sec1_bytes_to_point(const EC_GROUP_Guard &group, std::span<const 
     {
         // Do not log an error here, as this happens in normal operation when encoding to a curve.
         // The caller should instead log an error when appropriate.
-        // Logger()->error("Call to EC_POINT_oct2point failed in sec1_bytes_to_point.");
+        // GetLogger()->error("Call to EC_POINT_oct2point failed in sec1_bytes_to_point.");
         return {};
     }
 
@@ -103,7 +103,7 @@ std::vector<std::byte> e2c_salt_from_public_key(Type type, const EC_GROUP_Guard 
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name || group.get_curve() != params.curve)
     {
-        Logger()->error("e2c_salt_from_public_key called with invalid or mismatched EC_GROUP.");
+        GetLogger()->error("e2c_salt_from_public_key called with invalid or mismatched EC_GROUP.");
         return {};
     }
 
@@ -120,19 +120,19 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
 {
     if (!bcg.has_value() || !ensure_bcg_set(bcg, true))
     {
-        Logger()->error("ecvrf_try_and_increment_method failed to obtain BN_CTX.");
+        GetLogger()->error("ecvrf_try_and_increment_method failed to obtain BN_CTX.");
         return {};
     }
 
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name || E2CMethod::TRY_AND_INCREMENT != params.e2c)
     {
-        Logger()->error("ecvrf_try_and_increment_method called with non-TAI VRF type.");
+        GetLogger()->error("ecvrf_try_and_increment_method called with non-TAI VRF type.");
         return {};
     }
     if (!group.has_value() || group.get_curve() != params.curve)
     {
-        Logger()->error("ecvrf_try_and_increment_method called with invalid or mismatched EC_GROUP.");
+        GetLogger()->error("ecvrf_try_and_increment_method called with invalid or mismatched EC_GROUP.");
         return {};
     }
 
@@ -145,7 +145,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
         suite_string_len, std::uint32_t{3} /* 2x domain separator + ctr string*/, e2c_salt.size(), data.size());
     if (!buf_size || !std::in_range<std::ptrdiff_t>(*buf_size))
     {
-        Logger()->error("Buffer size overflow in ecvrf_try_and_increment_method.");
+        GetLogger()->error("Buffer size overflow in ecvrf_try_and_increment_method.");
         return {};
     }
 
@@ -171,7 +171,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
         cofactor = BIGNUM_Guard{false};
         if (!cofactor.has_value() || 1 != BN_set_word(cofactor.get(), params.cofactor))
         {
-            Logger()->error("Failed to allocate or set cofactor BIGNUM in ecvrf_try_and_increment_method.");
+            GetLogger()->error("Failed to allocate or set cofactor BIGNUM in ecvrf_try_and_increment_method.");
             return {};
         }
     }
@@ -189,7 +189,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
         std::vector<std::byte> hash = compute_hash(params.digest, buf);
         if (hash.empty())
         {
-            Logger()->error("Failed to compute {} hash in ecvrf_try_and_increment_method.", params.digest);
+            GetLogger()->error("Failed to compute {} hash in ecvrf_try_and_increment_method.", params.digest);
             return {};
         }
 
@@ -201,7 +201,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
             {
                 if (1 != EC_POINT_mul(group.get(), pt.get(), nullptr, pt.get(), cofactor.get(), bcg.get()))
                 {
-                    Logger()->error("Failed to clear cofactor in ecvrf_try_and_increment_method.");
+                    GetLogger()->error("Failed to clear cofactor in ecvrf_try_and_increment_method.");
                     return {};
                 }
             }
@@ -212,7 +212,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
         ctr++;
     } while (ctr != 0); // Try until counter wraps around.
 
-    Logger()->error("ecvrf_try_and_increment_method failed to find a valid point on the curve.");
+    GetLogger()->error("ecvrf_try_and_increment_method failed to find a valid point on the curve.");
     return {}; // Failure
 }
 
@@ -220,14 +220,14 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
 {
     if (nullptr == modulus || data.empty())
     {
-        Logger()->error("rfc6979_bits2octets called with uninitialized modulus or empty data.");
+        GetLogger()->error("rfc6979_bits2octets called with uninitialized modulus or empty data.");
         return {};
     }
 
     // We check that even if data.size() is multiplied by 8 (to get bit count) it does not overflow int.
     if (data.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()) / 8)
     {
-        Logger()->error("rfc6979_bits2octets called with too-large data size.");
+        GetLogger()->error("rfc6979_bits2octets called with too-large data size.");
         return {};
     }
 
@@ -237,7 +237,7 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
     const int mod_bitlen = BN_num_bits(modulus);
     if (mod_bitlen <= 0)
     {
-        Logger()->error("Invalid modulus in rfc6979_bits2octets.");
+        GetLogger()->error("Invalid modulus in rfc6979_bits2octets.");
         return {};
     }
     const int mod_len = static_cast<int>((static_cast<std::size_t>(mod_bitlen) + 7) / 8);
@@ -248,7 +248,7 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
     // Make sure we have a BN_CTX we can use. If not, allocate a secure one just to be safe.
     if (!bcg.has_value() || !ensure_bcg_set(bcg, true))
     {
-        Logger()->error("rfc6979_bits2octets failed to obtain BN_CTX.");
+        GetLogger()->error("rfc6979_bits2octets failed to obtain BN_CTX.");
         return {};
     }
 
@@ -256,14 +256,14 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
     BIGNUM *data_bn = BN_CTX_get(bcg.get());
     if (nullptr == data_bn)
     {
-        Logger()->error("Failed to allocate temporary BIGNUM in rfc6979_bits2octets.");
+        GetLogger()->error("Failed to allocate temporary BIGNUM in rfc6979_bits2octets.");
         BN_CTX_end(bcg.get());
         return {};
     }
 
     if (!BN_bin2bn(reinterpret_cast<const unsigned char *>(data.data()), data_len, data_bn))
     {
-        Logger()->error("Failed to convert bits to BIGNUM in rfc6979_bits2octets.");
+        GetLogger()->error("Failed to convert bits to BIGNUM in rfc6979_bits2octets.");
         BN_CTX_end(bcg.get());
         return {};
     }
@@ -271,7 +271,7 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
     // First, if data is longer than mod_bitlen, we need to right-shift it.
     if (0 < shift_bits && 1 != BN_rshift(data_bn, data_bn, shift_bits))
     {
-        Logger()->error("Failed to right-shift data in rfc6979_bits2octets.");
+        GetLogger()->error("Failed to right-shift data in rfc6979_bits2octets.");
         BN_CTX_end(bcg.get());
         return {};
     }
@@ -279,7 +279,7 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
     // Now reduce modulo the given modulus. This can be done with a conditional subtraction.
     if (0 <= BN_ucmp(data_bn, modulus) && 1 != BN_sub(data_bn, data_bn, modulus))
     {
-        Logger()->error("Failed to reduce data mod modulus in rfc6979_bits2octets.");
+        GetLogger()->error("Failed to reduce data mod modulus in rfc6979_bits2octets.");
         BN_CTX_end(bcg.get());
         return {};
     }
@@ -288,7 +288,7 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
     std::vector<std::byte> out(static_cast<std::size_t>(mod_len));
     if (out.size() != int_to_bytes_big_endian(BIGNUM_Guard{data_bn, false /* owned */}, out))
     {
-        Logger()->error("Failed to convert reduced data to bytes in rfc6979_bits2octets.");
+        GetLogger()->error("Failed to convert reduced data to bytes in rfc6979_bits2octets.");
         BN_CTX_end(bcg.get());
         return {};
     }
@@ -303,48 +303,48 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name || NonceGenMethod::RFC6979 != params.nonce_gen)
     {
-        Logger()->error("rfc6979_nonce_gen called with non-RFC6979 VRF type.");
+        GetLogger()->error("rfc6979_nonce_gen called with non-RFC6979 VRF type.");
         return {};
     }
 
     if (!group.has_value() || group.get_curve() != params.curve)
     {
-        Logger()->error("rfc6979_nonce_gen called with invalid or mismatched EC_GROUP.");
+        GetLogger()->error("rfc6979_nonce_gen called with invalid or mismatched EC_GROUP.");
         return {};
     }
 
     const BIGNUM *order = EC_GROUP_get0_order(group.get());
     if (nullptr == order)
     {
-        Logger()->error("Failed to retrieve group order in rfc6979_nonce_gen.");
+        GetLogger()->error("Failed to retrieve group order in rfc6979_nonce_gen.");
         return {};
     }
 
     int order_bitlen = BN_num_bits(order);
     if (0 >= order_bitlen)
     {
-        Logger()->error("Invalid group order in rfc6979_nonce_gen.");
+        GetLogger()->error("Invalid group order in rfc6979_nonce_gen.");
         return {};
     }
 
     BN_CTX_Guard bcg{true};
     if (!bcg.has_value())
     {
-        Logger()->error("rfc6979_nonce_gen failed to create BN_CTX.");
+        GetLogger()->error("rfc6979_nonce_gen failed to create BN_CTX.");
         return {};
     }
 
     EVP_KDF *kdf = EVP_KDF_fetch(get_libctx(), "HMAC-DRBG-KDF", get_propquery());
     if (nullptr == kdf)
     {
-        Logger()->error("Failed to fetch HMAC-DRBG-KDF in rfc6979_nonce_gen.");
+        GetLogger()->error("Failed to fetch HMAC-DRBG-KDF in rfc6979_nonce_gen.");
         return {};
     }
 
     EVP_KDF_CTX *kdf_ctx = EVP_KDF_CTX_new(kdf);
     if (nullptr == kdf_ctx)
     {
-        Logger()->error("Failed to create KDF context in rfc6979_nonce_gen.");
+        GetLogger()->error("Failed to create KDF context in rfc6979_nonce_gen.");
         EVP_KDF_free(kdf);
         return {};
     }
@@ -354,7 +354,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     std::vector<std::byte> mhash_octets = rfc6979_bits2octets(order, mhash, bcg);
     if (mhash_octets.empty())
     {
-        Logger()->error("Failed to compute bits2octets of message hash in rfc6979_nonce_gen.");
+        GetLogger()->error("Failed to compute bits2octets of message hash in rfc6979_nonce_gen.");
         EVP_KDF_CTX_free(kdf_ctx);
         EVP_KDF_free(kdf);
         return {};
@@ -364,7 +364,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     const int sk_bits = BN_num_bits(sk.get());
     if (0 >= sk_bits)
     {
-        Logger()->error("Invalid secret key in rfc6979_nonce_gen.");
+        GetLogger()->error("Invalid secret key in rfc6979_nonce_gen.");
         EVP_KDF_CTX_free(kdf_ctx);
         EVP_KDF_free(kdf);
         return {};
@@ -375,7 +375,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     const std::size_t written = int_to_bytes_big_endian(sk, sk_buf);
     if (!sk_buf.has_value() || written != sk_bytes)
     {
-        Logger()->error("Failed to convert secret key to octets in rfc6979_nonce_gen.");
+        GetLogger()->error("Failed to convert secret key to octets in rfc6979_nonce_gen.");
         EVP_KDF_CTX_free(kdf_ctx);
         EVP_KDF_free(kdf);
         return {};
@@ -389,7 +389,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
 
     if (1 != EVP_KDF_CTX_set_params(kdf_ctx, kdf_params))
     {
-        Logger()->error("Failed to set KDF parameters in rfc6979_nonce_gen.");
+        GetLogger()->error("Failed to set KDF parameters in rfc6979_nonce_gen.");
         EVP_KDF_CTX_free(kdf_ctx);
         EVP_KDF_free(kdf);
         return {};
@@ -401,7 +401,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     BIGNUM_Guard ret{true};
     if (!nonce_buf.has_value() || !ret.has_value())
     {
-        Logger()->error("Failed to allocate buffers in rfc6979_nonce_gen.");
+        GetLogger()->error("Failed to allocate buffers in rfc6979_nonce_gen.");
         EVP_KDF_CTX_free(kdf_ctx);
         EVP_KDF_free(kdf);
         return {};
@@ -413,14 +413,14 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     {
         if (1 != EVP_KDF_derive(kdf_ctx, reinterpret_cast<unsigned char *>(nonce_buf.get()), nonce_len, nullptr))
         {
-            Logger()->error("Failed to derive nonce from KDF in rfc6979_nonce_gen.");
+            GetLogger()->error("Failed to derive nonce from KDF in rfc6979_nonce_gen.");
             break;
         }
 
         BIGNUM_Guard nonce = bytes_to_int_big_endian(nonce_buf, bcg.is_secure());
         if (!nonce.has_value())
         {
-            Logger()->error("Failed to convert derived nonce to BIGNUM in rfc6979_nonce_gen.");
+            GetLogger()->error("Failed to convert derived nonce to BIGNUM in rfc6979_nonce_gen.");
             break;
         }
 
@@ -429,7 +429,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
         {
             if (!ret.has_value() || nullptr == BN_copy(ret.get(), nonce.get()))
             {
-                Logger()->error("Failed to copy nonce to return value in rfc6979_nonce_gen.");
+                GetLogger()->error("Failed to copy nonce to return value in rfc6979_nonce_gen.");
                 break;
             }
 
@@ -481,12 +481,12 @@ std::size_t do_append_ecpoint_to_bytes(const EC_GROUP_Guard &group, PointToBytes
 {
     if (!group.has_value() || !pt.has_value())
     {
-        Logger()->error("do_append_ecpoint_to_bytes called with uninitialized EC_GROUP or EC_POINT.");
+        GetLogger()->error("do_append_ecpoint_to_bytes called with uninitialized EC_GROUP or EC_POINT.");
         return 0;
     }
     if (!ensure_bcg_set(bcg, false))
     {
-        Logger()->error("do_append_ecpoint_to_bytes failed to obtain BN_CTX.");
+        GetLogger()->error("do_append_ecpoint_to_bytes failed to obtain BN_CTX.");
         return 0;
     }
 
@@ -494,7 +494,7 @@ std::size_t do_append_ecpoint_to_bytes(const EC_GROUP_Guard &group, PointToBytes
     std::size_t buf_size = pt_to_bytes(group, pt, bcg, {});
     if (0 == buf_size)
     {
-        Logger()->error("do_append_ecpoint_to_bytes failed to determine EC_POINT size.");
+        GetLogger()->error("do_append_ecpoint_to_bytes failed to determine EC_POINT size.");
         return 0;
     }
 
@@ -503,7 +503,7 @@ std::size_t do_append_ecpoint_to_bytes(const EC_GROUP_Guard &group, PointToBytes
     buf_size = pt_to_bytes(group, pt, bcg, std::span{append_to_out.data() + old_size, buf_size});
     if (0 == buf_size)
     {
-        Logger()->error("do_append_ecpoint_to_bytes failed to convert EC_POINT to bytes.");
+        GetLogger()->error("do_append_ecpoint_to_bytes failed to convert EC_POINT to bytes.");
         append_to_out.resize(old_size);
         return 0;
     }

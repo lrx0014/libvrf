@@ -13,6 +13,7 @@ set(libvrf_SOURCE_FILES ${libvrf_SOURCE_FILES}
     ${CMAKE_CURRENT_LIST_DIR}/guards.cpp
     ${CMAKE_CURRENT_LIST_DIR}/hash.cpp
     ${CMAKE_CURRENT_LIST_DIR}/log.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/stdout_log.cpp
     ${CMAKE_CURRENT_LIST_DIR}/vrf.cpp
 )
 
@@ -20,6 +21,7 @@ install(
     FILES
         ${CMAKE_CURRENT_LIST_DIR}/common.h
         ${CMAKE_CURRENT_LIST_DIR}/guards.h
+        ${CMAKE_CURRENT_LIST_DIR}/log.h
         ${CMAKE_CURRENT_LIST_DIR}/type.h
         ${CMAKE_CURRENT_LIST_DIR}/vrf.h
         ${CMAKE_CURRENT_LIST_DIR}/vrf_base.h

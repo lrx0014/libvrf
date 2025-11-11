@@ -17,14 +17,14 @@ std::vector<std::byte> compute_hash(const char *md_name, std::span<const std::by
     const EVP_MD *md = EVP_MD_fetch(get_libctx(), md_name, get_propquery());
     if (nullptr == md)
     {
-        vrf::Logger()->error("Failed to get EVP_MD for digest: {}", md_name);
+        GetLogger()->error("Failed to get EVP_MD for digest: {}", md_name);
         return {};
     }
 
     MD_CTX_Guard mctx = MD_CTX_Guard{true /* oneshot only */};
     if (!mctx.has_value())
     {
-        vrf::Logger()->error("Failed to get EVP_MD_CTX.");
+        GetLogger()->error("Failed to get EVP_MD_CTX.");
         return {};
     }
 
@@ -33,7 +33,7 @@ std::vector<std::byte> compute_hash(const char *md_name, std::span<const std::by
     if (1 != EVP_DigestInit(mctx.get(), md) || 1 != EVP_DigestUpdate(mctx.get(), tbh.data(), tbh.size()) ||
         1 != EVP_DigestFinal_ex(mctx.get(), reinterpret_cast<unsigned char *>(md_out.data()), &md_outlen))
     {
-        vrf::Logger()->error("Failed to compute digest; EVP_Digest* operations failed.");
+        GetLogger()->error("Failed to compute digest; EVP_Digest* operations failed.");
         return {};
     }
 

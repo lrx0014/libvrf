@@ -1,48 +1,64 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
-
-namespace
-{
-
-class LoggerManager
-{
-  public:
-    LoggerManager()
-    {
-        logger_ = spdlog::stdout_color_mt("vrf");
-        auto formatter = std::make_unique<spdlog::pattern_formatter>("[%t] %Y-%m-%d %H:%M:%S.%e | %l: %v");
-        logger_->set_formatter(std::move(formatter));
-    }
-
-    ~LoggerManager()
-    {
-        logger_->flush();
-        spdlog::drop("vrf");
-        logger_ = nullptr;
-    }
-
-    [[nodiscard]]
-    const std::shared_ptr<spdlog::logger> &get_logger() const
-    {
-        return logger_;
-    }
-
-  private:
-    std::shared_ptr<spdlog::logger> logger_;
-};
-
-} // namespace
+#include "vrf/log.h"
 
 namespace vrf
 {
 
-const std::shared_ptr<spdlog::logger> &Logger()
+std::shared_ptr<Logger> &GetOrSetLogger(std::shared_ptr<Logger> new_logger = nullptr)
 {
-    static auto logger = LoggerManager();
-    return logger.get_logger();
+    static std::shared_ptr<Logger> logger = NewDefaultLogger();
+    if (nullptr != new_logger)
+    {
+        logger = std::move(new_logger);
+    }
+    return logger;
+}
+
+void Logger::log(LogLevel level, std::string msg) const
+{
+    const std::size_t level_index = static_cast<std::size_t>(level);
+    const std::size_t min_level_index = static_cast<std::size_t>(log_level_);
+    if (level_index >= log_level_count || level_index < min_level_index)
+    {
+        // Invalid log level; ignore.
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock{mtx_};
+    if (log_handlers_[level_index])
+    {
+        log_handlers_[level_index](std::move(msg));
+    }
+}
+
+void Logger::flush_internal() const
+{
+    for (std::size_t i = 0; i < log_level_count; i++)
+    {
+        if (flush_handlers_[i])
+        {
+            flush_handlers_[i]();
+        }
+    }
+}
+
+void Logger::close_internal()
+{
+    flush_internal();
+    for (std::size_t i = 0; i < log_level_count; i++)
+    {
+        if (close_handlers_[i])
+        {
+            close_handlers_[i]();
+        }
+    }
+
+    // Set all handlers to null after closing.
+    log_handlers_.fill(nullptr);
+    flush_handlers_.fill(nullptr);
+    close_handlers_.fill(nullptr);
 }
 
 } // namespace vrf

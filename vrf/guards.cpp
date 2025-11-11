@@ -25,14 +25,14 @@ EC_GROUP_Guard::EC_GROUP_Guard(Curve curve) : ec_group_{}, curve_{Curve::UNDEFIN
     const int nid = curve_to_nid(curve);
     if (NID_undef == nid)
     {
-        Logger()->error("EC_GROUP_Guard constructor called with unsupported curve.");
+        GetLogger()->error("EC_GROUP_Guard constructor called with unsupported curve.");
         return;
     }
 
     EC_GROUP *ec_group = EC_GROUP_new_by_curve_name_ex(get_libctx(), get_propquery(), nid);
     if (nullptr == ec_group)
     {
-        Logger()->error("Failed to create EC_GROUP for curve NID {}.", nid);
+        GetLogger()->error("Failed to create EC_GROUP for curve NID {}.", nid);
         return;
     }
 
@@ -63,7 +63,7 @@ EC_GROUP_Guard::EC_GROUP_Guard(const EC_GROUP_Guard &source) : ec_group_{nullptr
     EC_GROUP *group_copy = EC_GROUP_dup(source.ec_group_);
     if (nullptr == group_copy)
     {
-        Logger()->error("EC_GROUP_Guard copy constructor failed to clone the given group.");
+        GetLogger()->error("EC_GROUP_Guard copy constructor failed to clone the given group.");
     }
 
     ec_group_ = group_copy;
@@ -84,7 +84,7 @@ BIGNUM_Guard::BIGNUM_Guard(bool secure) : bn_{}, owned_{false}
     }
     if (nullptr == bn)
     {
-        Logger()->error("Failed to create ({}) BIGNUM.", secure ? "secure" : "non-secure");
+        GetLogger()->error("Failed to create ({}) BIGNUM.", secure ? "secure" : "non-secure");
     }
     else
     {
@@ -132,7 +132,7 @@ BN_CTX_Guard::BN_CTX_Guard(bool secure)
     BN_CTX *bcg = secure ? BN_CTX_secure_new_ex(libctx) : BN_CTX_new_ex(libctx);
     if (nullptr == bcg)
     {
-        Logger()->error("Failed to create ({}) BN_CTX.", secure ? "secure" : "non-secure");
+        GetLogger()->error("Failed to create ({}) BN_CTX.", secure ? "secure" : "non-secure");
     }
     else
     {
@@ -170,7 +170,7 @@ bool ensure_bcg_set(BN_CTX_Guard &bcg, bool secure)
     bcg = BN_CTX_Guard{secure};
     if (!bcg.has_value())
     {
-        Logger()->error("Failed to create BN_CTX in try_set_bcg.");
+        GetLogger()->error("Failed to create BN_CTX in try_set_bcg.");
         return false;
     }
 
@@ -182,20 +182,20 @@ EC_POINT_Guard::EC_POINT_Guard(Curve curve, EC_POINT *ec_pt, BN_CTX_Guard &bcg) 
     const EC_GROUP_Guard group{curve};
     if (!group.has_value() || nullptr == ec_pt)
     {
-        Logger()->error("EC_POINT_Guard constructor called with invalid curve or null EC_POINT.");
+        GetLogger()->error("EC_POINT_Guard constructor called with invalid curve or null EC_POINT.");
         return;
     }
 
     // Check that the point is actually on the curve.
     if (!ensure_bcg_set(bcg, false))
     {
-        Logger()->error("EC_POINT_Guard constructor failed to obtain BN_CTX.");
+        GetLogger()->error("EC_POINT_Guard constructor failed to obtain BN_CTX.");
         return;
     }
 
     if (1 != EC_POINT_is_on_curve(group.get(), ec_pt, bcg.get()))
     {
-        Logger()->error("EC_POINT_Guard constructor called with EC_POINT not on the specified curve.");
+        GetLogger()->error("EC_POINT_Guard constructor called with EC_POINT not on the specified curve.");
         return;
     }
 
@@ -208,14 +208,14 @@ EC_POINT_Guard::EC_POINT_Guard(const EC_GROUP_Guard &group)
 {
     if (!group.has_value())
     {
-        Logger()->error("EC_POINT_Guard constructor called with uninitialized EC_GROUP_Guard.");
+        GetLogger()->error("EC_POINT_Guard constructor called with uninitialized EC_GROUP_Guard.");
         return;
     }
 
     EC_POINT *pt = EC_POINT_new(group.get());
     if (nullptr == pt || 1 != EC_POINT_set_to_infinity(group.get(), pt))
     {
-        Logger()->error("Failed to create or initialize EC_POINT.");
+        GetLogger()->error("Failed to create or initialize EC_POINT.");
         EC_POINT_free(pt);
         return;
     }

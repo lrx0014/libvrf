@@ -29,14 +29,14 @@ ScalarType make_challenge(Type type, const EC_GROUP_Guard &group, Points &&...po
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name || group.get_curve() != params.curve)
     {
-        Logger()->error("make_challenge called with invalid or mismatched EC_GROUP.");
+        GetLogger()->error("make_challenge called with invalid or mismatched EC_GROUP.");
         return {};
     }
 
     BN_CTX_Guard bcg{false};
     if (!bcg.has_value())
     {
-        Logger()->error("make_challenge failed to create BN_CTX.");
+        GetLogger()->error("make_challenge failed to create BN_CTX.");
         return {};
     }
 
@@ -48,7 +48,7 @@ ScalarType make_challenge(Type type, const EC_GROUP_Guard &group, Points &&...po
         safe_add(suite_string_len, 2u /* domain separators */, (sizeof...(Points) * params.pt_len));
     if (!challenge_input_buf_size.has_value() || !std::in_range<std::ptrdiff_t>(*challenge_input_buf_size))
     {
-        Logger()->error("make_challenge failed to compute challenge input buffer size.");
+        GetLogger()->error("make_challenge failed to compute challenge input buffer size.");
         return {};
     }
 
@@ -65,7 +65,7 @@ ScalarType make_challenge(Type type, const EC_GROUP_Guard &group, Points &&...po
                                                       std::forward<Points>(points)...);
     if (!success || challenge_buf.size() != written + suite_string_len + 2 /* domain separators */)
     {
-        Logger()->error("make_challenge failed to encode points to bytes.");
+        GetLogger()->error("make_challenge failed to encode points to bytes.");
         return {};
     }
     *domain_separator_back_start = domain_separator_back;
@@ -88,24 +88,24 @@ std::tuple<bool, ECPoint, ScalarType, ScalarType> decode_proof(Type type, const 
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->error("decode_proof called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->error("decode_proof called with non-EC VRF type: {}", type_to_string(type));
         return {false, {}, {}, {}};
     }
     if (group.get_curve() != params.curve)
     {
-        Logger()->error("decode_proof called with mismatched EC_GROUP for VRF type: {}", type_to_string(type));
+        GetLogger()->error("decode_proof called with mismatched EC_GROUP for VRF type: {}", type_to_string(type));
         return {false, {}, {}, {}};
     }
     if (!ensure_bcg_set(bcg, false))
     {
-        Logger()->error("decode_proof failed to obtain BN_CTX.");
+        GetLogger()->error("decode_proof failed to obtain BN_CTX.");
         return {false, {}, {}, {}};
     }
 
     const std::size_t expected_proof_size = params.pt_len + params.c_len + params.q_len;
     if (expected_proof_size != proof.size())
     {
-        Logger()->error("decode_proof called with proof of incorrect size: expected {} bytes, got {} bytes",
+        GetLogger()->error("decode_proof called with proof of incorrect size: expected {} bytes, got {} bytes",
                         expected_proof_size, proof.size());
         return {false, {}, {}, {}};
     }
@@ -119,7 +119,7 @@ std::tuple<bool, ECPoint, ScalarType, ScalarType> decode_proof(Type type, const 
     const bytes_to_int_ptr_t bytes_to_int = get_bytes_to_int_method(params.bytes_to_int);
     if (!bytes_to_point || !bytes_to_int)
     {
-        Logger()->error("decode_proof failed to get bytes_to_point or bytes_to_int methods.");
+        GetLogger()->error("decode_proof failed to get bytes_to_point or bytes_to_int methods.");
         return {false, {}, {}, {}};
     }
 
@@ -128,14 +128,14 @@ std::tuple<bool, ECPoint, ScalarType, ScalarType> decode_proof(Type type, const 
     const ScalarType s = bytes_to_int({s_start, params.q_len}, false);
     if (!gamma.has_value() || !challenge.has_value() || !s.has_value())
     {
-        Logger()->error("decode_proof failed to decode one of the proof components.");
+        GetLogger()->error("decode_proof failed to decode one of the proof components.");
         return {false, {}, {}, {}};
     }
 
     const BIGNUM *order = EC_GROUP_get0_order(group.get());
     if (0 <= BN_cmp(s.get().get(), order))
     {
-        Logger()->error("decode_proof found 's' value not in valid range.");
+        GetLogger()->error("decode_proof found 's' value not in valid range.");
         return {false, {}, {}, {}};
     }
 
@@ -146,27 +146,27 @@ bool validate_public_key(Type type, const ECPoint &pk, const EC_GROUP_Guard &gro
 {
     if (!pk.has_value() || !group.has_value() || group.get_curve() != pk.get_curve())
     {
-        Logger()->error("validate_key called with invalid or mismatched ECPoint and EC_GROUP.");
+        GetLogger()->error("validate_key called with invalid or mismatched ECPoint and EC_GROUP.");
         return false;
     }
 
     if (!ensure_bcg_set(bcg, false))
     {
-        Logger()->error("validate_key failed to obtain BN_CTX.");
+        GetLogger()->error("validate_key failed to obtain BN_CTX.");
         return false;
     }
 
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->error("validate_key called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->error("validate_key called with non-EC VRF type: {}", type_to_string(type));
         return false;
     }
 
     // Check that the group matches the type.
     if (group.get_curve() != params.curve)
     {
-        Logger()->error("validate_key called with mismatched EC_GROUP for VRF type: {}", type_to_string(type));
+        GetLogger()->error("validate_key called with mismatched EC_GROUP for VRF type: {}", type_to_string(type));
         return false;
     }
 
@@ -178,13 +178,13 @@ bool validate_public_key(Type type, const ECPoint &pk, const EC_GROUP_Guard &gro
         ScalarType cofactor{false};
         if (!cofactor.has_value() || 1 != BN_set_word(cofactor.get().get(), params.cofactor))
         {
-            Logger()->error("validate_key failed to create or set cofactor BIGNUM.");
+            GetLogger()->error("validate_key failed to create or set cofactor BIGNUM.");
             return false;
         }
 
         if (!cofactor_cleared_pk.scalar_multiply(group, cofactor, bcg))
         {
-            Logger()->error("validate_key failed to multiply public key by cofactor.");
+            GetLogger()->error("validate_key failed to multiply public key by cofactor.");
             return false;
         }
     }
@@ -209,13 +209,13 @@ std::vector<std::byte> get_vrf_value_internal(const ECVRFParams &params, const E
         ScalarType cofactor{false};
         if (!cofactor.has_value() || 1 != BN_set_word(cofactor.get().get(), params.cofactor))
         {
-            Logger()->error("ECProof::get_vrf_value failed to create or set cofactor BIGNUM.");
+            GetLogger()->error("ECProof::get_vrf_value failed to create or set cofactor BIGNUM.");
             return {};
         }
 
         if (!gamma.scalar_multiply(group, cofactor, bcg))
         {
-            Logger()->error("ECProof::get_vrf_value failed to multiply gamma by cofactor.");
+            GetLogger()->error("ECProof::get_vrf_value failed to multiply gamma by cofactor.");
             return {};
         }
     }
@@ -225,7 +225,7 @@ std::vector<std::byte> get_vrf_value_internal(const ECVRFParams &params, const E
     point_to_bytes_ptr_t point_to_bytes = get_point_to_bytes_method(params.point_to_bytes);
     if (params.pt_len != point_to_bytes(group, gamma.get(), bcg, cofactor_cleared_gamma_buf))
     {
-        Logger()->error("ECProof::get_vrf_value failed to convert cofactor-cleared gamma to bytes.");
+        GetLogger()->error("ECProof::get_vrf_value failed to convert cofactor-cleared gamma to bytes.");
         return {};
     }
 
@@ -255,7 +255,7 @@ std::vector<std::byte> ECProof::get_vrf_value() const
 {
     if (!is_initialized())
     {
-        Logger()->warn("ECProof::get_vrf_value called on an incorrectly initialized proof.");
+        GetLogger()->warn("ECProof::get_vrf_value called on an incorrectly initialized proof.");
         return {};
     }
 
@@ -263,28 +263,28 @@ std::vector<std::byte> ECProof::get_vrf_value() const
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->warn("ECProof::get_vrf_value called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECProof::get_vrf_value called with non-EC VRF type: {}", type_to_string(type));
         return {};
     }
 
     const EC_GROUP_Guard group{params.curve};
     if (!group.has_value())
     {
-        Logger()->error("ECProof::get_vrf_value failed to create EC_GROUP for VRF type: {}", vrf::type_to_string(type));
+        GetLogger()->error("ECProof::get_vrf_value failed to create EC_GROUP for VRF type: {}", vrf::type_to_string(type));
         return {};
     }
 
     BN_CTX_Guard bcg{false};
     if (!bcg.has_value())
     {
-        Logger()->error("ECProof::get_vrf_value failed to create BN_CTX.");
+        GetLogger()->error("ECProof::get_vrf_value failed to create BN_CTX.");
         return {};
     }
 
     auto [success, gamma, challenge, s] = decode_proof(get_type(), group, proof_, bcg);
     if (!success)
     {
-        Logger()->error("ECProof::get_vrf_value failed to decode proof.");
+        GetLogger()->error("ECProof::get_vrf_value failed to decode proof.");
         return {};
     }
 
@@ -296,7 +296,7 @@ void ECProof::from_bytes(Type type, std::span<const std::byte> data)
     ECProof ec_proof{type, std::vector<std::byte>(data.begin(), data.end())};
     if (!ec_proof.is_initialized())
     {
-        Logger()->warn("ECProof::from_bytes called with invalid proof data for VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECProof::from_bytes called with invalid proof data for VRF type: {}", type_to_string(type));
         return;
     }
 
@@ -328,21 +328,21 @@ ECSecretKey::ECSecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_{}, pk_{}, gr
     ScalarType sk{true};
     if (!sk.has_value())
     {
-        Logger()->error("ECSecretKey constructor failed to create ScalarType for secret key.");
+        GetLogger()->error("ECSecretKey constructor failed to create ScalarType for secret key.");
         return;
     }
 
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->warn("ECSecretKey constructor called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECSecretKey constructor called with non-EC VRF type: {}", type_to_string(type));
         return;
     }
 
     EC_GROUP_Guard group{params.curve};
     if (!group.has_value())
     {
-        Logger()->error("ECSecretKey constructor failed to create EC_GROUP for VRF type: {}",
+        GetLogger()->error("ECSecretKey constructor failed to create EC_GROUP for VRF type: {}",
                         vrf::type_to_string(type));
         return;
     }
@@ -352,7 +352,7 @@ ECSecretKey::ECSecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_{}, pk_{}, gr
     {
         if (!sk.set_random(group))
         {
-            Logger()->error("ECSecretKey constructor failed to set random secret key.");
+            GetLogger()->error("ECSecretKey constructor failed to set random secret key.");
             return;
         }
     } while (sk.is_zero());
@@ -361,7 +361,7 @@ ECSecretKey::ECSecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_{}, pk_{}, gr
     ECPoint pk{group};
     if (!pk.has_value())
     {
-        Logger()->error("ECSecretKey constructor failed to create public key point.");
+        GetLogger()->error("ECSecretKey constructor failed to create public key point.");
         return;
     }
 
@@ -369,7 +369,7 @@ ECSecretKey::ECSecretKey(Type type) : SecretKey{Type::UNKNOWN}, sk_{}, pk_{}, gr
     BN_CTX_Guard bcg{true};
     if (!pk.set_to_generator_multiple(group, sk, bcg))
     {
-        Logger()->error("ECSecretKey constructor failed to compute public key point.");
+        GetLogger()->error("ECSecretKey constructor failed to compute public key point.");
         return;
     }
 
@@ -385,21 +385,21 @@ ECSecretKey::ECSecretKey(Type type, ScalarType sk) : SecretKey{Type::UNKNOWN}, s
 {
     if (!sk.has_value())
     {
-        Logger()->warn("ECSecretKey constructor called with uninitialized secret key.");
+        GetLogger()->warn("ECSecretKey constructor called with uninitialized secret key.");
         return;
     }
 
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->warn("ECSecretKey constructor called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECSecretKey constructor called with non-EC VRF type: {}", type_to_string(type));
         return;
     }
 
     EC_GROUP_Guard group{params.curve};
     if (!group.has_value())
     {
-        Logger()->error("ECSecretKey constructor failed to create EC_GROUP for VRF type: {}",
+        GetLogger()->error("ECSecretKey constructor failed to create EC_GROUP for VRF type: {}",
                         vrf::type_to_string(type));
         return;
     }
@@ -408,7 +408,7 @@ ECSecretKey::ECSecretKey(Type type, ScalarType sk) : SecretKey{Type::UNKNOWN}, s
     const BIGNUM *order = EC_GROUP_get0_order(group.get());
     if (0 > BN_cmp(sk.get().get(), BN_value_one()) || 0 <= BN_cmp(sk.get().get(), order))
     {
-        Logger()->warn("ECSecretKey constructor called with secret key out of valid range.");
+        GetLogger()->warn("ECSecretKey constructor called with secret key out of valid range.");
         return;
     }
 
@@ -416,7 +416,7 @@ ECSecretKey::ECSecretKey(Type type, ScalarType sk) : SecretKey{Type::UNKNOWN}, s
     ECPoint pk{group};
     if (!pk.has_value())
     {
-        Logger()->error("ECSecretKey constructor failed to create public key point.");
+        GetLogger()->error("ECSecretKey constructor failed to create public key point.");
         return;
     }
 
@@ -424,7 +424,7 @@ ECSecretKey::ECSecretKey(Type type, ScalarType sk) : SecretKey{Type::UNKNOWN}, s
     BN_CTX_Guard bcg{true};
     if (!pk.set_to_generator_multiple(group, sk, bcg))
     {
-        Logger()->error("ECSecretKey constructor failed to compute public key point.");
+        GetLogger()->error("ECSecretKey constructor failed to compute public key point.");
         return;
     }
 
@@ -440,7 +440,7 @@ std::unique_ptr<PublicKey> ECSecretKey::get_public_key()
 {
     if (!is_initialized())
     {
-        Logger()->warn("ECSecretKey::get_public_key called on invalid ECSecretKey.");
+        GetLogger()->warn("ECSecretKey::get_public_key called on invalid ECSecretKey.");
         return nullptr;
     }
 
@@ -477,7 +477,7 @@ ECSecretKey::ECSecretKey(const ECSecretKey &source) : sk_{}, pk_{}, group_{}
 
     if (!sk_copy.has_value() || !pk_copy.has_value() || !group_copy.has_value())
     {
-        Logger()->error("ECSecretKey copy constructor failed to clone the given secret key.");
+        GetLogger()->error("ECSecretKey copy constructor failed to clone the given secret key.");
         return;
     }
 
@@ -491,7 +491,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
 {
     if (!is_initialized())
     {
-        Logger()->warn("ECSecretKey::get_vrf_proof called on invalid ECSecretKey.");
+        GetLogger()->warn("ECSecretKey::get_vrf_proof called on invalid ECSecretKey.");
         return nullptr;
     }
 
@@ -499,7 +499,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->warn("ECSecretKey::get_vrf_proof called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECSecretKey::get_vrf_proof called with non-EC VRF type: {}", type_to_string(type));
         return nullptr;
     }
 
@@ -507,7 +507,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     BN_CTX_Guard bcg{true};
     if (!bcg.has_value())
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to create BN_CTX.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to create BN_CTX.");
         return nullptr;
     }
 
@@ -515,7 +515,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     const int_to_bytes_ptr_t int_to_bytes = get_int_to_bytes_method(params.bytes_to_int);
     if (!point_to_bytes || !int_to_bytes)
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to get point_to_bytes or int_to_bytes methods.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to get point_to_bytes or int_to_bytes methods.");
         return nullptr;
     }
 
@@ -533,7 +533,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     std::vector<std::byte> e2c_salt{};
     if (nullptr == e2c_salt_method || (e2c_salt = e2c_salt_method(type, group_, pk_.get(), bcg)).empty())
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to get encode-to-curve salt.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to get encode-to-curve salt.");
         return nullptr;
     }
 
@@ -542,7 +542,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     ECPoint e2c_point{};
     if (nullptr == e2c_method || !(e2c_point.get() = e2c_method(type, group_, e2c_salt, in, bcg)).has_value())
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to compute encode-to-curve point.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to compute encode-to-curve point.");
         return nullptr;
     }
 
@@ -550,7 +550,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     std::vector<std::byte> e2c_data(params.pt_len);
     if (params.pt_len != point_to_bytes(group_, e2c_point.get(), bcg, e2c_data))
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to convert encode-to-curve point to bytes.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to convert encode-to-curve point to bytes.");
         return nullptr;
     }
 
@@ -558,7 +558,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     ECPoint gamma = e2c_point;
     if (!gamma.scalar_multiply(group_, sk_, bcg))
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to compute gamma point.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to compute gamma point.");
         return nullptr;
     }
 
@@ -567,7 +567,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     ScalarType nonce{};
     if (nullptr == nonce_gen_method || !(nonce.get() = nonce_gen_method(type, group_, sk_.get(), e2c_data)).has_value())
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to compute nonce.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to compute nonce.");
         return nullptr;
     }
 
@@ -575,7 +575,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     ECPoint nonce_times_generator{group_};
     if (!nonce_times_generator.set_to_generator_multiple(group_, nonce, bcg))
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to compute nonce*generator point.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to compute nonce*generator point.");
         return nullptr;
     }
 
@@ -583,7 +583,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     ECPoint nonce_times_e2c_point = e2c_point;
     if (!nonce_times_e2c_point.scalar_multiply(group_, nonce, bcg))
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to compute nonce*e2c_point.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to compute nonce*e2c_point.");
         return nullptr;
     }
 
@@ -596,7 +596,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
     if (!s.multiply(challenge, group_, bcg) || !s.reduce_mod_order(group_, bcg) || !s.add(nonce, group_, bcg) ||
         !s.reduce_mod_order(group_, bcg))
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to compute nonce+challenge*sk mod order.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to compute nonce+challenge*sk mod order.");
         return nullptr;
     }
 
@@ -608,7 +608,7 @@ std::unique_ptr<Proof> ECSecretKey::get_vrf_proof(std::span<const std::byte> in)
         params.c_len != int_to_bytes(challenge.get(), {challenge_start, params.c_len}) ||
         params.q_len != int_to_bytes(s.get(), {s_start, params.q_len}))
     {
-        Logger()->error("ECSecretKey::get_vrf_proof failed to assemble proof.");
+        GetLogger()->error("ECSecretKey::get_vrf_proof failed to assemble proof.");
         return nullptr;
     }
 
@@ -621,7 +621,7 @@ ECPublicKey::ECPublicKey(const ECPublicKey &source) : PublicKey{Type::UNKNOWN}, 
     EC_GROUP_Guard group_copy{source.group_};
     if (pk_copy.has_value() != source.pk_.has_value() || group_copy.has_value() != source.group_.has_value())
     {
-        Logger()->error("ECPublicKey copy constructor failed to clone the given public key.");
+        GetLogger()->error("ECPublicKey copy constructor failed to clone the given public key.");
         return;
     }
 
@@ -650,13 +650,13 @@ ECPublicKey::ECPublicKey(Type type, EC_GROUP_Guard group, ECPoint pk) : PublicKe
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->warn("ECPublicKey constructor called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECPublicKey constructor called with non-EC VRF type: {}", type_to_string(type));
         return;
     }
 
     if (!group.has_value() || !pk.has_value() || group.get_curve() != params.curve || params.curve != pk.get_curve())
     {
-        Logger()->warn(
+        GetLogger()->warn(
             "ECPublicKey constructor called with invalid or mismatched EC_GROUP and ECPoint for VRF type: {}",
             type_to_string(type));
         return;
@@ -672,21 +672,21 @@ ECPublicKey::ECPublicKey(Type type, std::span<const std::byte> der_spki) : Publi
 {
     if (!is_ec_type(type))
     {
-        Logger()->warn("ECPublicKey constructor called with EC VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECPublicKey constructor called with EC VRF type: {}", type_to_string(type));
         return;
     }
 
     const ECVRFParams params = get_ecvrf_params(type);
     if (nullptr == params.algorithm_name)
     {
-        Logger()->warn("ECPublicKey constructor called with non-EC VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECPublicKey constructor called with non-EC VRF type: {}", type_to_string(type));
         return;
     }
 
     EC_GROUP_Guard group{params.curve};
     if (!group.has_value())
     {
-        Logger()->error("ECPublicKey constructor failed to create EC_GROUP for VRF type: {}",
+        GetLogger()->error("ECPublicKey constructor failed to create EC_GROUP for VRF type: {}",
                         vrf::type_to_string(type));
         return;
     }
@@ -694,7 +694,7 @@ ECPublicKey::ECPublicKey(Type type, std::span<const std::byte> der_spki) : Publi
     EVP_PKEY_Guard pkey{decode_public_key_from_der_spki(params.algorithm_name, der_spki)};
     if (!pkey.has_value())
     {
-        Logger()->warn("ECPublicKey constructor failed to decode DER SPKI for VRF type: {}", type_to_string(type));
+        GetLogger()->warn("ECPublicKey constructor failed to decode DER SPKI for VRF type: {}", type_to_string(type));
         return;
     }
 
@@ -702,7 +702,7 @@ ECPublicKey::ECPublicKey(Type type, std::span<const std::byte> der_spki) : Publi
     std::size_t group_name_size = 0;
     if (1 != EVP_PKEY_get_utf8_string_param(pkey.get(), OSSL_PKEY_PARAM_GROUP_NAME, nullptr, 0, &group_name_size))
     {
-        Logger()->error("ECPublicKey constructor failed to get size of OSSL_PKEY_PARAM_GROUP_NAME.");
+        GetLogger()->error("ECPublicKey constructor failed to get size of OSSL_PKEY_PARAM_GROUP_NAME.");
         return;
     }
 
@@ -712,7 +712,7 @@ ECPublicKey::ECPublicKey(Type type, std::span<const std::byte> der_spki) : Publi
                                             group_name.size(), &group_name_size) ||
         group_name.size() != group_name_size + 1)
     {
-        Logger()->error("ECPublicKey constructor failed to get OSSL_PKEY_PARAM_GROUP_NAME.");
+        GetLogger()->error("ECPublicKey constructor failed to get OSSL_PKEY_PARAM_GROUP_NAME.");
         return;
     }
 
@@ -720,7 +720,7 @@ ECPublicKey::ECPublicKey(Type type, std::span<const std::byte> der_spki) : Publi
     std::size_t pk_size = 0;
     if (1 != EVP_PKEY_get_octet_string_param(pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0, &pk_size))
     {
-        Logger()->error("ECPublicKey constructor failed to get size of OSSL_PKEY_PARAM_PUB_KEY.");
+        GetLogger()->error("ECPublicKey constructor failed to get size of OSSL_PKEY_PARAM_PUB_KEY.");
         return;
     }
 
@@ -730,14 +730,14 @@ ECPublicKey::ECPublicKey(Type type, std::span<const std::byte> der_spki) : Publi
                                              &pk_size) ||
         pk_bytes.size() != pk_size)
     {
-        Logger()->error("ECPublicKey constructor failed to get OSSL_PKEY_PARAM_PUB_KEY.");
+        GetLogger()->error("ECPublicKey constructor failed to get OSSL_PKEY_PARAM_PUB_KEY.");
         return;
     }
 
     BN_CTX_Guard bcg{false};
     if (!bcg.has_value())
     {
-        Logger()->error("ECPublicKey constructor failed to create BN_CTX.");
+        GetLogger()->error("ECPublicKey constructor failed to create BN_CTX.");
         return;
     }
 
@@ -745,7 +745,7 @@ ECPublicKey::ECPublicKey(Type type, std::span<const std::byte> der_spki) : Publi
     bytes_to_point_ptr_t point_from_bytes = get_bytes_to_point_method(params.bytes_to_point);
     if (nullptr == point_from_bytes || !(pk = point_from_bytes(group, pk_bytes, bcg)).has_value())
     {
-        Logger()->error("ECPublicKey constructor failed to convert public key bytes to ECPoint.");
+        GetLogger()->error("ECPublicKey constructor failed to convert public key bytes to ECPoint.");
         return;
     }
 
@@ -760,7 +760,7 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
 {
     if (!is_initialized())
     {
-        Logger()->warn("ECPublicKey::verify_vrf_proof called on invalid ECPublicKey.");
+        GetLogger()->warn("ECPublicKey::verify_vrf_proof called on invalid ECPublicKey.");
         return {false, {}};
     }
 
@@ -768,21 +768,21 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
     const ECProof *ec_proof = dynamic_cast<const ECProof *>(proof.get());
     if (nullptr == ec_proof)
     {
-        Logger()->warn("ECPublicKey::verify_vrf_proof called with proof that is not of type ECProof.");
+        GetLogger()->warn("ECPublicKey::verify_vrf_proof called with proof that is not of type ECProof.");
         return {false, {}};
     }
 
     const Type type = get_type();
     if (!ec_proof->is_initialized() || ec_proof->get_type() != type)
     {
-        Logger()->warn("ECPublicKey::verify_vrf_proof called with invalid or mismatched proof type.");
+        GetLogger()->warn("ECPublicKey::verify_vrf_proof called with invalid or mismatched proof type.");
         return {false, {}};
     }
 
     BN_CTX_Guard bcg{false};
     if (!bcg.has_value())
     {
-        Logger()->error("ECPublicKey::verify_vrf_proof failed to create BN_CTX.");
+        GetLogger()->error("ECPublicKey::verify_vrf_proof failed to create BN_CTX.");
         return {false, {}};
     }
 
@@ -791,14 +791,14 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
     // Verify that the public key is valid.
     if (!validate_public_key(type, pk_, group_, bcg))
     {
-        Logger()->warn("ECPublicKey::verify_vrf_proof found public key is invalid.");
+        GetLogger()->warn("ECPublicKey::verify_vrf_proof found public key is invalid.");
         return {false, {}};
     }
 
     const auto [success, gamma, challenge, s] = decode_proof(type, group_, ec_proof->proof_, bcg);
     if (!success)
     {
-        Logger()->warn("ECPublicKey::verify_vrf_proof failed to decode proof.");
+        GetLogger()->warn("ECPublicKey::verify_vrf_proof failed to decode proof.");
         return {false, {}};
     }
 
@@ -806,7 +806,7 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
     std::vector<std::byte> e2c_salt{};
     if (nullptr == e2c_salt_method || (e2c_salt = e2c_salt_method(type, group_, pk_.get(), bcg)).empty())
     {
-        Logger()->error("ECPublicKey::verify_vrf_proof failed to get encode-to-curve salt.");
+        GetLogger()->error("ECPublicKey::verify_vrf_proof failed to get encode-to-curve salt.");
         return {false, {}};
     }
 
@@ -814,7 +814,7 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
     ECPoint e2c_point{};
     if (nullptr == e2c_method || !(e2c_point.get() = e2c_method(type, group_, e2c_salt, in, bcg)).has_value())
     {
-        Logger()->error("ECPublicKey::verify_vrf_proof failed to compute encode-to-curve point.");
+        GetLogger()->error("ECPublicKey::verify_vrf_proof failed to compute encode-to-curve point.");
         return {false, {}};
     }
 
@@ -822,21 +822,21 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
     ECPoint s_times_e2c_point{e2c_point};
     if (!s_times_e2c_point.scalar_multiply(group_, s, bcg))
     {
-        Logger()->error("ECPublicKey::verify_vrf_proof failed to compute s*e2c_point.");
+        GetLogger()->error("ECPublicKey::verify_vrf_proof failed to compute s*e2c_point.");
         return {false, {}};
     }
 
     ECPoint U{pk_};
     if (!U.negate(group_, bcg) || !U.double_scalar_multiply(group_, challenge, s, bcg))
     {
-        Logger()->error("ECPublicKey::verify_vrf_proof failed to compute U point.");
+        GetLogger()->error("ECPublicKey::verify_vrf_proof failed to compute U point.");
         return {false, {}};
     }
 
     ECPoint V{gamma};
     if (!V.negate(group_, bcg) || !V.scalar_multiply(group_, challenge, bcg) || !V.add(group_, s_times_e2c_point, bcg))
     {
-        Logger()->error("ECPublicKey::verify_vrf_proof failed to compute V point.");
+        GetLogger()->error("ECPublicKey::verify_vrf_proof failed to compute V point.");
         return {false, {}};
     }
 
@@ -852,7 +852,7 @@ std::pair<bool, std::vector<std::byte>> ECPublicKey::verify_vrf_proof(std::span<
     std::vector<std::byte> vrf_value = get_vrf_value_internal(params, group_, std::move(gamma), bcg);
     if (vrf_value.empty())
     {
-        Logger()->error("ECPublicKey::verify_vrf_proof failed to compute VRF value from proof.");
+        GetLogger()->error("ECPublicKey::verify_vrf_proof failed to compute VRF value from proof.");
         return {false, {}};
     }
 
@@ -863,14 +863,14 @@ std::vector<std::byte> ECPublicKey::to_bytes()
 {
     if (!is_initialized())
     {
-        Logger()->warn("ECPublicKey::to_bytes called on invalid ECPublicKey.");
+        GetLogger()->warn("ECPublicKey::to_bytes called on invalid ECPublicKey.");
         return {};
     }
 
     BN_CTX_Guard bcg{false};
     if (!bcg.has_value())
     {
-        Logger()->error("ECPublicKey::to_bytes failed to create BN_CTX.");
+        GetLogger()->error("ECPublicKey::to_bytes failed to create BN_CTX.");
         return {};
     }
 
@@ -880,7 +880,7 @@ std::vector<std::byte> ECPublicKey::to_bytes()
     std::vector<std::byte> pk_bytes(pk_size);
     if (0 == pk_size || pk_size != point_to_bytes(group_, pk_.get(), bcg, pk_bytes))
     {
-        Logger()->error("ECPublicKey::to_bytes failed to convert public key point to bytes.");
+        GetLogger()->error("ECPublicKey::to_bytes failed to convert public key point to bytes.");
         return {};
     }
 
@@ -889,13 +889,13 @@ std::vector<std::byte> ECPublicKey::to_bytes()
     EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_name(get_libctx(), params.algorithm_name, get_propquery())};
     if (!pctx.has_value())
     {
-        Logger()->error("ECPublicKey::to_bytes failed to create EVP_PKEY_CTX.");
+        GetLogger()->error("ECPublicKey::to_bytes failed to create EVP_PKEY_CTX.");
         return {};
     }
 
     if (1 != EVP_PKEY_fromdata_init(pctx.get()))
     {
-        Logger()->error("ECPublicKey::to_bytes failed to initialize EVP_PKEY from data.");
+        GetLogger()->error("ECPublicKey::to_bytes failed to initialize EVP_PKEY from data.");
         return {};
     }
 
@@ -904,7 +904,7 @@ std::vector<std::byte> ECPublicKey::to_bytes()
     const char *curve_sn = OBJ_nid2sn(nid);
     if (nullptr == curve_sn)
     {
-        Logger()->error("ECPublicKey::to_bytes failed to get curve short name from NID: {}", nid);
+        GetLogger()->error("ECPublicKey::to_bytes failed to get curve short name from NID: {}", nid);
         return {};
     }
 
@@ -915,7 +915,7 @@ std::vector<std::byte> ECPublicKey::to_bytes()
     EVP_PKEY_Guard pkey{nullptr};
     if (1 != EVP_PKEY_fromdata(pctx.get(), pkey.free_and_get_addr(), EVP_PKEY_PUBLIC_KEY, pkey_params))
     {
-        Logger()->error("ECPublicKey::to_bytes failed to create EVP_PKEY from data.");
+        GetLogger()->error("ECPublicKey::to_bytes failed to create EVP_PKEY from data.");
         return {};
     }
 
@@ -927,7 +927,7 @@ void ECPublicKey::from_bytes(Type type, std::span<const std::byte> data)
     ECPublicKey public_key{type, data};
     if (!public_key.is_initialized())
     {
-        Logger()->warn("ECPublicKey::from_bytes called with invalid public key DER for VRF type: {}",
+        GetLogger()->warn("ECPublicKey::from_bytes called with invalid public key DER for VRF type: {}",
                        type_to_string(type));
         return;
     }
