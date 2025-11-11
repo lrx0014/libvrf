@@ -10,20 +10,23 @@ namespace vrf::tests
 namespace
 {
 
-    std::vector<std::string> captured_logs{};
+std::vector<std::string> captured_logs{};
 
-    // Create a logger that appends to captured_logs vector.
-    std::shared_ptr<Logger> make_test_logger()
-    {
-        return Logger::Create(
+// Create a logger that appends to captured_logs vector.
+std::shared_ptr<Logger> make_test_logger()
+{
+    return Logger::Create(
         []() {
             std::array<log_handler_t, log_level_count> log_handlers{};
-            log_handlers[static_cast<std::size_t>(LogLevel::INFO)] =
-                [](std::string msg) { captured_logs.push_back("[info] " + msg); };
-            log_handlers[static_cast<std::size_t>(LogLevel::WARN)] =
-                [](std::string msg) { captured_logs.push_back("[warning] " + msg); };
-            log_handlers[static_cast<std::size_t>(LogLevel::ERROR)] =
-                [](std::string msg) { captured_logs.push_back("[error] " + msg); };
+            log_handlers[static_cast<std::size_t>(LogLevel::INFO)] = [](std::string msg) {
+                captured_logs.push_back("[info] " + msg);
+            };
+            log_handlers[static_cast<std::size_t>(LogLevel::WARN)] = [](std::string msg) {
+                captured_logs.push_back("[warning] " + msg);
+            };
+            log_handlers[static_cast<std::size_t>(LogLevel::ERROR)] = [](std::string msg) {
+                captured_logs.push_back("[error] " + msg);
+            };
             return log_handlers;
         }(),
         []() {
@@ -44,7 +47,7 @@ namespace
             close_handlers[static_cast<std::size_t>(LogLevel::ERROR)] = []() { captured_logs.clear(); };
             return close_handlers;
         }());
-    }
+}
 
 } // namespace
 
