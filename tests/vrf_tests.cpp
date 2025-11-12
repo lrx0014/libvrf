@@ -387,13 +387,15 @@ TEST(VRFTest, InputFlexibility)
 
 INSTANTIATE_TEST_SUITE_P(RSAVRFTypes, VRFTest,
                          testing::Values(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256, vrf::Type::RSA_FDH_VRF_RSA3072_SHA256,
-                                         vrf::Type::RSA_FDH_VRF_RSA4096_SHA384, vrf::Type::RSA_FDH_VRF_RSA8192_SHA512,
+                                         vrf::Type::RSA_FDH_VRF_RSA4096_SHA384, vrf::Type::RSA_FDH_VRF_RSA4096_SHA512,
                                          vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256,
                                          vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256,
                                          vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384,
-                                         vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512));
+                                         vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA512),
+                         testing::PrintToStringParamName());
 
-INSTANTIATE_TEST_SUITE_P(ECVRFTypes, VRFTest, testing::Values(vrf::Type::EC_VRF_P256_SHA256_TAI));
+INSTANTIATE_TEST_SUITE_P(ECVRFTypes, VRFTest, testing::Values(vrf::Type::EC_VRF_P256_SHA256_TAI),
+                         testing::PrintToStringParamName());
 
 class RSATestVectors : public testing::TestWithParam<vrf::Type>
 {
@@ -442,8 +444,10 @@ TEST_P(ECTestVectors, TestVectors)
 
 INSTANTIATE_TEST_SUITE_P(TestVectorTypes, RSATestVectors,
                          testing::Values(vrf::Type::RSA_FDH_VRF_RSA2048_SHA256, vrf::Type::RSA_FDH_VRF_RSA3072_SHA256,
-                                         vrf::Type::RSA_FDH_VRF_RSA4096_SHA384));
+                                         vrf::Type::RSA_FDH_VRF_RSA4096_SHA384, vrf::Type::RSA_FDH_VRF_RSA4096_SHA512),
+                         testing::PrintToStringParamName());
 
-INSTANTIATE_TEST_SUITE_P(TestVectorTypes, ECTestVectors, testing::Values(vrf::Type::EC_VRF_P256_SHA256_TAI));
+INSTANTIATE_TEST_SUITE_P(TestVectorTypes, ECTestVectors, testing::Values(vrf::Type::EC_VRF_P256_SHA256_TAI),
+                         testing::PrintToStringParamName());
 
 } // namespace vrf::tests

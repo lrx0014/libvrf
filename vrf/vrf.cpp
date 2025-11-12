@@ -21,7 +21,7 @@ std::unique_ptr<SecretKey> VRF::Create(Type type)
     }
     else
     {
-        GetLogger()->error("VRF type {} is not supported", type_to_string(type));
+        GetLogger()->error("VRF type {} is not supported", to_string(type));
         return nullptr;
     }
 }
@@ -40,19 +40,19 @@ std::unique_ptr<Proof> VRF::proof_from_bytes(Type type, std::span<const std::byt
     }
     else
     {
-        GetLogger()->warn("VRF type {} is not supported", type_to_string(type));
+        GetLogger()->warn("VRF type {} is not supported", to_string(type));
     }
 
     if (nullptr == proof)
     {
-        GetLogger()->error("Failed to allocate memory for VRF proof of type {}", type_to_string(type));
+        GetLogger()->error("Failed to allocate memory for VRF proof of type {}", to_string(type));
         return nullptr;
     }
 
     proof->from_bytes(type, data);
     if (!proof->is_initialized())
     {
-        GetLogger()->warn("Failed to deserialize VRF proof for type {}", type_to_string(type));
+        GetLogger()->warn("Failed to deserialize VRF proof for type {}", to_string(type));
         return nullptr;
     }
 
@@ -73,19 +73,19 @@ std::unique_ptr<PublicKey> VRF::public_key_from_bytes(Type type, std::span<const
     }
     else
     {
-        GetLogger()->warn("VRF type {} is not supported", type_to_string(type));
+        GetLogger()->warn("VRF type {} is not supported", to_string(type));
     }
 
     if (nullptr == pk)
     {
-        GetLogger()->error("Failed to allocate memory for VRF public key of type {}", type_to_string(type));
+        GetLogger()->error("Failed to allocate memory for VRF public key of type {}", to_string(type));
         return nullptr;
     }
 
     pk->from_bytes(type, data);
     if (!pk->is_initialized())
     {
-        GetLogger()->warn("Failed to deserialize VRF public key for type {}", type_to_string(type));
+        GetLogger()->warn("Failed to deserialize VRF public key for type {}", to_string(type));
         return nullptr;
     }
 

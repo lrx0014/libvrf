@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
 
 #include "vrf/ec/ecpoint.h"
 #include "vrf/common.h"
@@ -15,7 +17,8 @@ std::optional<bool> try_subtract_reduce_mod_group_order(BIGNUM_Guard &bn, const 
 {
     if (!bn.has_value() || !group.has_value())
     {
-        GetLogger()->error("try_subtract_reduce_mod_group_order called with uninitialized BIGNUM, EC_GROUP, or BN_CTX.");
+        GetLogger()->error(
+            "try_subtract_reduce_mod_group_order called with uninitialized BIGNUM, EC_GROUP, or BN_CTX.");
         return std::nullopt;
     }
 

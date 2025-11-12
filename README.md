@@ -2,32 +2,41 @@
 
 ## Verifiable Random Functions
 
-A Verifiable Random Function (VRF) is a cryptographic primitive that produces a pseudorandom output ("VRF value") together with a proof that the output was correctly computed from a given input and a secret key.
-Only the secret key holder can generate the output–proof pair, but anyone with the corresponding public key can verify that the output is valid.
-They are useful when you need a publicly verifiable source of randomness that cannot be biased by the party generating, ensuring that the output is both unpredictable before it is revealed and provably correct after it is.
+A Verifiable Random Function (VRF) is a cryptographic public-key primitive that, from a secret key and a given input, produces a unique pseudorandom output, along with a proof that the output was correctly computed.
+Only the secret key holder can generate the output–proof pair, but anyone with the corresponding public key can verify the proof.
 
-`libvrf` is a C++ implementation of several VRFs, mostly following the specification in [https://datatracker.ietf.org/doc/rfc9381](https://datatracker.ietf.org/doc/rfc9381).
+`libvrf` is a C++20 implementation of several VRFs.
 It comes with a CMake based build system, unit tests, and benchmarks.
 
 ### Build
 
-`libvrf` depends only on [OpenSSL](https://github.com/openssl/openssl).
-To build, ensure [vcpkg](https://GitHub.com/Microsoft/vcpkg) is installed and run
+To build `libvrf`, ensure [vcpkg](https://GitHub.com/Microsoft/vcpkg) is installed (and the environment variable `VCPKG_ROOT` is set).
+Then run
 ```bash
-cmake -B build -S . -GNinja -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=<Debug|Release>
-cmake --build build -j
+cmake --preset <preset-name>
+cmake --build --preset <preset-name>
+cmake --install out/build/<preset-name> # optional; to install in custom destination, include --prefix <destination>
 ```
-Specify `-DLIBVRF_BUILD_TESTS=ON` and `-DLIBVRF_BUILD_BENCHMARKS=ON` to build the test and the benchmark suites.
-After this, the test and benchmark executables are available in your build directory.
+The list of available options for `<preset-name>` can be seen by running `cmake --list-presets`.
+The presets will automatically build the test and benchmark suites.
+After building, the executables `vrf_tests[.exe]` and `vrf_benchmarks[.exe]` are available in `out/build/<preset-name>/bin`.
+
+If you do not want to use presets, you can specify `-DLIBVRF_BUILD_TESTS=ON` and `-DLIBVRF_BUILD_BENCHMARKS=ON` to build the test and the benchmark suites.
 
 ## Implemented VRFs
 
 `libvrf` implements RSA-FDH VRF and elliptic curve VRF based on [RFC9381](https://datatracker.ietf.org/doc/rfc9381).
-It also implements an RSA VRF variant based on standard RSA-PSS signatures.
+It also implements an RSA VRF variant based on RSA-PSS signatures with no nonce.
+
+### Warning
+
+The security models of VRFs are non-trivial.
+For example, RSA-based VRFs are not secure unless the key generation process is trusted.
+For more details and explanation of the security guarantees, see [RFC9381](https://datatracker.ietf.org/doc/rfc9381).
 
 ## Usage
 
-`libvrf` exposes a simple, type-safe API for creating VRF keypairs, producing proofs, verifying them, and (de)serializing keys and proofs.
+`libvrf` exposes a simple API for creating VRF keypairs, producing proofs, verifying them, and (de)serializing keys and proofs.
 These functionalities are illustrated in the examples below.
 
 ### 1) Choosing the VRF type and key generation
@@ -38,11 +47,11 @@ They are described by the following enum values:
 - `vrf::Type::RSA_FDH_VRF_RSA2048_SHA256`
 - `vrf::Type::RSA_FDH_VRF_RSA3072_SHA256`
 - `vrf::Type::RSA_FDH_VRF_RSA4096_SHA384`
-- `vrf::Type::RSA_FDH_VRF_RSA8192_SHA512`
+- `vrf::Type::RSA_FDH_VRF_RSA4096_SHA512`
 - `vrf::Type::RSA_PSS_NOSALT_VRF_RSA2048_SHA256`
 - `vrf::Type::RSA_PSS_NOSALT_VRF_RSA3072_SHA256`
 - `vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA384`
-- `vrf::Type::RSA_PSS_NOSALT_VRF_RSA8192_SHA512`
+- `vrf::Type::RSA_PSS_NOSALT_VRF_RSA4096_SHA512`
 - `vrf::Type::EC_VRF_P256_SHA256_TAI`
 
 The following code snippet creates an RSA-FDH VRF with a 2048-bit key and uses SHA-256 as a hash function.

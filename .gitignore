@@ -5,4 +5,4 @@
 .nvim
 compile_commands.json
 build*
-
+out

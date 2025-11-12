@@ -107,6 +107,6 @@ TEST(CommonTests, SafeAdd)
         EXPECT_TRUE(result.has_value());
         EXPECT_EQ(result.value(), std::uint16_t{255 + 255 + 1});
     }
-} 
+}
 
 } // namespace vrf::tests

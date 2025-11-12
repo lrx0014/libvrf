@@ -4,20 +4,20 @@
 #pragma once
 
 #include "vrf/type.h"
+#include <string_view>
 
 namespace vrf::rsa
 {
 
 struct RSAVRFParams
 {
-    const char *algorithm_name = nullptr;
+    std::string_view algorithm_name{};
     unsigned bits = 0;
     unsigned primes = 0;
     unsigned e = 0;
-    const char *digest = nullptr;
+    std::string_view digest{};
     int pad_mode = 0;
-    const char *suite_string = nullptr;
-    std::size_t suite_string_len = 0;
+    std::string_view suite_string{};
 };
 
 [[nodiscard]]

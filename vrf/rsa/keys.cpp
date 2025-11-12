@@ -144,13 +144,12 @@ EVP_PKEY_Guard RSA_SK_Guard::generate_rsa_key(Type type)
 {
     if (!is_rsa_type(type))
     {
-        GetLogger()->warn("generate_rsa_key called with non-RSA VRF type: {}", type_to_string(type));
+        GetLogger()->warn("generate_rsa_key called with non-RSA VRF type: {}", to_string(type));
         return {};
     }
 
     const RSAVRFParams params = get_rsavrf_params(type);
-    const char *algorithm_name = params.algorithm_name;
-    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_name(get_libctx(), algorithm_name, get_propquery())};
+    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_name(get_libctx(), params.algorithm_name.data(), get_propquery())};
     if (!pctx.has_value())
     {
         GetLogger()->error("Failed to create EVP_PKEY_CTX for RSA key generation.");
@@ -251,7 +250,7 @@ RSA_PK_Guard::RSA_PK_Guard(const RSA_SK_Guard &sk_guard) : type_{Type::UNKNOWN},
 RSA_PK_Guard::RSA_PK_Guard(Type type, std::span<const std::byte> der_spki) : type_(Type::UNKNOWN), pkey_(nullptr)
 {
     const RSAVRFParams params = get_rsavrf_params(type);
-    EVP_PKEY_Guard pkey{decode_public_key_from_der_spki(params.algorithm_name, der_spki)};
+    EVP_PKEY_Guard pkey{decode_public_key_from_der_spki(params.algorithm_name.data(), der_spki)};
     if (!pkey.has_value())
     {
         GetLogger()->warn("RSA_PK_Guard constructor failed to load EVP_PKEY from provided DER SPKI.");

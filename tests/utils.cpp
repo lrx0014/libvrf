@@ -2,8 +2,8 @@
 // Licensed under the MIT license.
 
 #include "vrf/../tests/utils.h"
-#include "vrf/../tests/rsa_test_vectors.h"
 #include "vrf/../tests/ec_test_vectors.h"
+#include "vrf/../tests/rsa_test_vectors.h"
 #include "vrf/common.h"
 #include "vrf/ec/ecvrf.h"
 #include "vrf/log.h"
@@ -77,13 +77,13 @@ EVP_PKEY_Guard make_rsa_secret_key(Type type, const std::string &p_hex, const st
     }
 
     rsa::RSAVRFParams params = rsa::get_rsavrf_params(type);
-    if (nullptr == params.algorithm_name)
+    if (params.algorithm_name.empty())
     {
         GetLogger()->error("Unsupported VRF type for RSA key generation.");
         return {};
     }
 
-    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_name(get_libctx(), params.algorithm_name, get_propquery())};
+    EVP_PKEY_CTX_Guard pctx{EVP_PKEY_CTX_new_from_name(get_libctx(), params.algorithm_name.data(), get_propquery())};
     if (!pctx.has_value())
     {
         GetLogger()->error("Failed to create EVP_PKEY_CTX for RSA key generation.");
@@ -358,8 +358,10 @@ RSA_VRF_TestVectorParams get_rsa_vrf_test_vector_params(Type type)
         return RSA_FDH_3072_SHA256_PARAMS;
     case Type::RSA_FDH_VRF_RSA4096_SHA384:
         return RSA_FDH_4096_SHA384_PARAMS;
+    case Type::RSA_FDH_VRF_RSA4096_SHA512:
+        return RSA_FDH_4096_SHA512_PARAMS;
     default:
-        GetLogger()->error("No test vector parameters defined for VRF type: {}", type_to_string(type));
+        GetLogger()->error("No test vector parameters defined for VRF type: {}", to_string(type));
         return {};
     }
 }
@@ -371,7 +373,7 @@ EC_VRF_TestVectorParams get_ec_vrf_test_vector_params(Type type)
     case Type::EC_VRF_P256_SHA256_TAI:
         return EC_VRF_P256_SHA256_TAI_PARAMS;
     default:
-        GetLogger()->error("No test vector parameters defined for VRF type: {}", type_to_string(type));
+        GetLogger()->error("No test vector parameters defined for VRF type: {}", to_string(type));
         return {};
     }
 }

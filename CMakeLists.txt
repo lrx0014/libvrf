@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT license.
 
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.25)
 
 option(LIBVRF_BUILD_TESTS      "Build the tests."      OFF)
 option(LIBVRF_BUILD_BENCHMARKS "Build the benchmarks." OFF)
@@ -23,7 +23,7 @@ endif()
 # Where to look for our helper modules.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-project(libvrf VERSION 0.6.0 LANGUAGES CXX)
+project(libvrf VERSION 1.0.0 LANGUAGES CXX)
 
 # Define additional directory path variables.
 include(GNUInstallDirs)

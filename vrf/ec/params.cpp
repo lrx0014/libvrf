@@ -7,8 +7,7 @@
 
 #define ECVRF_PARAMS(CURVE, COFACTOR, DIGEST, B2I, P2B, B2P, E2C_SALT, E2C, NONCE, SUITE_STRING, FLEN, CLEN, QLEN,     \
                      PTLEN, HLEN)                                                                                      \
-    "EC", CURVE, COFACTOR, DIGEST, B2I, P2B, B2P, E2C_SALT, E2C, NONCE, SUITE_STRING, std::strlen(SUITE_STRING), FLEN, \
-        CLEN, QLEN, PTLEN, HLEN
+    "EC", CURVE, COFACTOR, DIGEST, B2I, P2B, B2P, E2C_SALT, E2C, NONCE, SUITE_STRING, FLEN, CLEN, QLEN, PTLEN, HLEN
 
 namespace vrf::ec
 {

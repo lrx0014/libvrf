@@ -101,7 +101,7 @@ std::vector<std::byte> e2c_salt_from_public_key(Type type, const EC_GROUP_Guard 
     // Only check that type and group are matching in terms of the NID. Other inputs are checked
     // by functions called.
     const ECVRFParams params = get_ecvrf_params(type);
-    if (nullptr == params.algorithm_name || group.get_curve() != params.curve)
+    if (params.algorithm_name.empty() || group.get_curve() != params.curve)
     {
         GetLogger()->error("e2c_salt_from_public_key called with invalid or mismatched EC_GROUP.");
         return {};
@@ -125,7 +125,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
     }
 
     const ECVRFParams params = get_ecvrf_params(type);
-    if (nullptr == params.algorithm_name || E2CMethod::TRY_AND_INCREMENT != params.e2c)
+    if (params.algorithm_name.empty() || E2CMethod::TRY_AND_INCREMENT != params.e2c)
     {
         GetLogger()->error("ecvrf_try_and_increment_method called with non-TAI VRF type.");
         return {};
@@ -136,7 +136,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
         return {};
     }
 
-    const std::size_t suite_string_len = params.suite_string_len;
+    const std::size_t suite_string_len = params.suite_string.size();
     const std::byte domain_separator_front = std::byte{0x01};
     const std::byte domain_separator_back = std::byte{0x00};
 
@@ -159,10 +159,11 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
     const auto domain_separator_back_start = ctr_start + 1 /* ctr */;
 
     // Copy in everything except the counter value.
-    copy_n(reinterpret_cast<const std::byte *>(params.suite_string), suite_string_len, suite_string_start);
+    std::transform(params.suite_string.begin(), params.suite_string.end(), suite_string_start,
+                   [](char c) { return static_cast<std::byte>(c); });
     *domain_separator_front_start = domain_separator_front;
-    copy(e2c_salt.begin(), e2c_salt.end(), e2c_salt_start);
-    copy(data.begin(), data.end(), data_start);
+    std::copy(e2c_salt.begin(), e2c_salt.end(), e2c_salt_start);
+    std::copy(data.begin(), data.end(), data_start);
     *domain_separator_back_start = domain_separator_back;
 
     BIGNUM_Guard cofactor{};
@@ -186,7 +187,7 @@ EC_POINT_Guard ecvrf_try_and_increment_method(Type type, const EC_GROUP_Guard &g
         *ctr_start = static_cast<std::byte>(ctr);
 
         // Hash buf
-        std::vector<std::byte> hash = compute_hash(params.digest, buf);
+        std::vector<std::byte> hash = compute_hash(params.digest.data(), buf);
         if (hash.empty())
         {
             GetLogger()->error("Failed to compute {} hash in ecvrf_try_and_increment_method.", params.digest);
@@ -301,7 +302,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
                                const std::span<const std::byte> m)
 {
     const ECVRFParams params = get_ecvrf_params(type);
-    if (nullptr == params.algorithm_name || NonceGenMethod::RFC6979 != params.nonce_gen)
+    if (params.algorithm_name.empty() || NonceGenMethod::RFC6979 != params.nonce_gen)
     {
         GetLogger()->error("rfc6979_nonce_gen called with non-RFC6979 VRF type.");
         return {};
@@ -350,7 +351,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     }
 
     // We need the bits2octets conversion of the hash of m.
-    const std::vector<std::byte> mhash = compute_hash(params.digest, m);
+    const std::vector<std::byte> mhash = compute_hash(params.digest.data(), m);
     std::vector<std::byte> mhash_octets = rfc6979_bits2octets(order, mhash, bcg);
     if (mhash_octets.empty())
     {
@@ -382,7 +383,7 @@ BIGNUM_Guard rfc6979_nonce_gen(Type type, const EC_GROUP_Guard &group, const BIG
     }
 
     OSSL_PARAM kdf_params[] = {
-        OSSL_PARAM_utf8_string(OSSL_DRBG_PARAM_DIGEST, const_cast<char *>(params.digest), 0),
+        OSSL_PARAM_utf8_string(OSSL_DRBG_PARAM_DIGEST, const_cast<char *>(params.digest.data()), 0),
         OSSL_PARAM_octet_string(OSSL_KDF_PARAM_HMACDRBG_ENTROPY, sk_buf.get(), sk_bytes),
         OSSL_PARAM_octet_string(OSSL_KDF_PARAM_HMACDRBG_NONCE, mhash_octets.data(), mhash_octets.size()),
         OSSL_PARAM_END};

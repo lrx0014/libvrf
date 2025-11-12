@@ -200,7 +200,7 @@ class SecretKey : public VRFObject<SecretKey>, public Clonable<SecretKey>
         return get_vrf_proof(std::as_bytes(in));
     }
 
-    /** 
+    /**
      * Generates a VRF proof for the given input data using this secret key.
      */
     template <ByteRange R>
