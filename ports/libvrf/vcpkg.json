@@ -1,7 +1,6 @@
 {
   "name": "libvrf",
-  "version": "1.0.1",
-  "port-version": 2,
+  "version": "1.0.2",
   "description": "VRF implementation library in C++20",
   "license": "MIT",
   "homepage": "https://github.com/microsoft/libvrf",

@@ -228,7 +228,7 @@ std::vector<std::byte> rfc6979_bits2octets(const BIGNUM *modulus, std::span<cons
     // We check that even if data.size() is multiplied by 8 (to get bit count) it does not overflow int.
     if (data.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()) / 8)
     {
-        GetLogger()->error("rfc6979_bits2octets called with too-large data size.");
+        GetLogger()->error("rfc6979_bits2octets called with too large data size.");
         return {};
     }
 

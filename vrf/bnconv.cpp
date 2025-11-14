@@ -22,7 +22,7 @@ BIGNUM_Guard bytes_to_int_core(BN_bin2bn_func_t func, std::span<const std::byte>
 {
     if (in.empty() && !std::in_range<int>(in.size()))
     {
-        GetLogger()->error("bytes_to_int_core called with empty or too-large input data.");
+        GetLogger()->error("bytes_to_int_core called with empty or too large input data.");
         return {};
     }
 
@@ -46,7 +46,7 @@ std::size_t int_to_bytes_core(BN_bn2binpad_func_t func, const BIGNUM_Guard &bn, 
     }
     if (!std::in_range<int>(out.size()))
     {
-        GetLogger()->error("int_to_bytes_core called with too-large output buffer size.");
+        GetLogger()->error("int_to_bytes_core called with too large output buffer size.");
         return 0;
     }
 
