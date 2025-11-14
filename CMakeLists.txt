@@ -63,7 +63,6 @@ add_subdirectory(vrf)
 
 # libvrf can only be built as a static library for now.
 add_library(libvrf STATIC ${libvrf_SOURCE_FILES})
-message(STATUS "[libvrf] Building static library")
 
 # Require C++20 for libvrf and downstream.
 target_compile_features(libvrf PUBLIC cxx_std_20)

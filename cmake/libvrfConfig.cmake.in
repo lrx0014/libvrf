@@ -37,5 +37,5 @@ endif()
 
 # Print information about available targets and directories.
 if(LIBVRF_FOUND)
-    message(STATUS "Found libvrf version ${libvrf_VERSION}.")
+    message(STATUS "Found libvrf version \"${libvrf_VERSION}\".")
 endif()

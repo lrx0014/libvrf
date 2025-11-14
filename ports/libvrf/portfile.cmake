@@ -1,0 +1,37 @@
+vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
+
+if(DEFINED ENV{LIBVRF_SOURCE_PATH})
+    # Development option: use local source tree by setting
+    # LIBVRF_SOURCE_PATH environment variable.
+    set(SOURCE_PATH "$ENV{LIBVRF_SOURCE_PATH}")
+else()
+    vcpkg_from_github(
+        OUT_SOURCE_PATH SOURCE_PATH
+        REPO Microsoft/libvrf
+        REF "v${VERSION}"
+        SHA512 0 # Set to correct hash once released.
+        HEAD_REF main
+    )
+endif()
+
+vcpkg_cmake_configure(SOURCE_PATH "${SOURCE_PATH}")
+
+vcpkg_cmake_install()
+
+# Only take the minor and minor version from ${VERSION}.
+set(VERSION_MAJOR_MINOR "")
+string(REGEX MATCH "^[0-9]+\\.[0-9]+" VERSION_MAJOR_MINOR "${VERSION}")
+
+vcpkg_cmake_config_fixup(CONFIG_PATH "lib/cmake/libvrf-${VERSION_MAJOR_MINOR}")
+
+file(REMOVE_RECURSE
+    "${CURRENT_PACKAGES_DIR}/debug/include"
+    "${CURRENT_PACKAGES_DIR}/debug/share"
+)
+
+file(
+    INSTALL "${CMAKE_CURRENT_LIST_DIR}/usage"
+    DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}"
+)
+
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
