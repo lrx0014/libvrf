@@ -13,7 +13,7 @@ It comes with a CMake based build system, unit tests, and benchmarks.
 To build `libvrf`, ensure [vcpkg](https://GitHub.com/Microsoft/vcpkg) is installed (and the environment variable `VCPKG_ROOT` is set).
 Then run
 ```bash
-cmake --preset <preset-name>
+cmake -S . --preset <preset-name>
 cmake --build --preset <preset-name>
 cmake --install out/build/<preset-name> # optional; to install in custom destination, include --prefix <destination>
 ```
