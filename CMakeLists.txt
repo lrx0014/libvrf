@@ -95,6 +95,36 @@ install(TARGETS libvrf
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/libvrf-${libvrf_VERSION_MM}
 )
 
+# Wrapper library.
+add_library(libvrf_wrapper STATIC
+    ${CMAKE_CURRENT_LIST_DIR}/wrapper/vrf_wrapper.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/wrapper/base64.cpp
+)
+target_compile_features(libvrf_wrapper PUBLIC cxx_std_20)
+target_link_libraries(libvrf_wrapper PUBLIC libvrf)
+target_include_directories(libvrf_wrapper PUBLIC
+    $<BUILD_INTERFACE:${libvrf_INCLUDES_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/wrapper>
+    $<INSTALL_INTERFACE:${libvrf_INCLUDES_INSTALL_DIR}>
+)
+set_target_properties(libvrf_wrapper PROPERTIES
+    DEBUG_POSTFIX "_debug"
+    EXPORT_NAME wrapper
+)
+add_library(libvrf::wrapper ALIAS libvrf_wrapper)
+
+install(TARGETS libvrf_wrapper
+    EXPORT libvrfTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/libvrf-${libvrf_VERSION_MM}
+)
+
+install(
+    FILES
+        ${CMAKE_CURRENT_LIST_DIR}/wrapper/vrf_wrapper.h
+        ${CMAKE_CURRENT_LIST_DIR}/wrapper/base64.h
+    DESTINATION ${libvrf_INCLUDES_INSTALL_DIR}/vrf
+)
+
 # Create the CMake config file.
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
